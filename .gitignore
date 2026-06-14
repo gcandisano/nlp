@@ -216,3 +216,15 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Datos grandes / artefactos generados
+data/embeddings/
+data/processed/*.csv
+results/figures/*
+results/metrics/*.csv
+results/models/*
+results/error_analysis/*
+!results/figures/.gitkeep
+!results/metrics/.gitkeep
+!results/models/.gitkeep
+!results/error_analysis/.gitkeep
