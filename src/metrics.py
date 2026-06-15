@@ -55,7 +55,12 @@ def consolidate_results(
     frames = []
     baseline_path = baseline_path or (RESULTS_METRICS / "baseline_results.csv")
     if baseline_path.exists():
-        frames.append(pd.read_csv(baseline_path))
+        baseline_df = pd.read_csv(baseline_path)
+        if "split" in baseline_df.columns:
+            test_rows = baseline_df[baseline_df["split"] == "test"]
+            frames.append(test_rows if not test_rows.empty else baseline_df)
+        else:
+            frames.append(baseline_df)
 
     if embedding_path is None:
         embedding_path = RESULTS_METRICS / "embedding_results.csv"
