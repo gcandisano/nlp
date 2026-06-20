@@ -223,6 +223,7 @@ data/processed/*.csv
 data/processed/*.parquet
 results/figures/*
 results/metrics/*.csv
+results/metrics/*.json
 results/models/*
 results/error_analysis/*
 !results/figures/.gitkeep

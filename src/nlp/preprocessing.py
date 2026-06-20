@@ -27,7 +27,15 @@ URL_PATTERN = re.compile(
     flags=re.IGNORECASE,
 )
 PUNCTUATION_PATTERN = re.compile(r"[^\w\s!?]")
+DIGITS_PATTERN = re.compile(r"\d+")
 WHITESPACE_PATTERN = re.compile(r"\s+")
+
+# Marcadores de agencia/fuente para ablación (ADR Exp. 1).
+SOURCE_MARKERS = ("reuters", "ap", "afp")
+_SOURCE_MARKERS_PATTERN = re.compile(
+    r"\b(?:" + "|".join(re.escape(m) for m in SOURCE_MARKERS) + r")\b",
+    flags=re.IGNORECASE,
+)
 
 # Filas por tarea en la limpieza paralela de stopwords. Por debajo del umbral
 # el costo de levantar el pool de procesos supera al trabajo y se hace serial.
@@ -131,6 +139,17 @@ def remove_punctuation(text: str, keep_exclamation_question: bool = True) -> str
     return re.sub(r"[^\w\s]", " ", text)
 
 
+def remove_numbers(text: str) -> str:
+    return DIGITS_PATTERN.sub(" ", text)
+
+
+def normalize_source_markers(text: str, token: str = "[SOURCE]") -> str:
+    """Reemplaza tokens de agencia/fuente por un marcador genérico."""
+    if pd.isna(text) or text is None:
+        return ""
+    return normalize_whitespace(_SOURCE_MARKERS_PATTERN.sub(token, str(text)))
+
+
 def remove_stopwords_from_tokens(
     tokens: list[str], stop_set: set | None = None
 ) -> list[str]:
@@ -163,6 +182,7 @@ def clean_text(
     text = replace_urls(text)
     if remove_punct:
         text = remove_punctuation(text, keep_exclamation_question=True)
+    text = remove_numbers(text)
     text = normalize_whitespace(text)
 
     tokens = text.split()
@@ -179,6 +199,7 @@ def _vectorized_clean_base(series: pd.Series) -> pd.Series:
     out = series.fillna("").astype(str).str.lower()
     out = out.str.replace(URL_PATTERN, "[URL]", regex=True)
     out = out.str.replace(PUNCTUATION_PATTERN, " ", regex=True)
+    out = out.str.replace(DIGITS_PATTERN, " ", regex=True)
     return out.str.replace(WHITESPACE_PATTERN, " ", regex=True).str.strip()
 
 

@@ -26,6 +26,8 @@ La distribución de clases es equilibrada (aproximadamente 48% reales vs. 52% fa
 
 Adicionalmente, dado que las noticias cuentan con fecha de publicación, las particiones train/validation/test se realizarán de forma temporal (ordenando por fecha), en lugar de aleatorias, para simular mejor un escenario realista de detección.
 
+Para el modelado no se utilizarán indistintamente todas las noticias: el **experimento principal** trabaja sobre un **subconjunto político** (reales con `subject = politicsNews`, falsas con `subject = politics`), y el **dataset completo** solo se emplea en baselines como **control de sensibilidad** (véase [Alcance de datos](#alcance-de-datos) en Experimentos).
+
 ## Análisis exploratorio
 
 En esta fase, realizamos un estudio descriptivo sobre el dataset de 44.898 registros. En el [anexo](#anexo) se pueden observar los gráficos generados por este análisis. A continuación se detallan los hallazgos principales.
@@ -62,8 +64,8 @@ A través de nubes de palabras y tablas de frecuencia ([figura 1](./assets/figur
 Para realizar estos análisis y preparar los datos para los modelos, se implementaron las siguientes técnicas:
 
 - **Normalización**: Conversión de todo el texto a minúsculas.
-- **Limpieza**: Eliminación de puntuación, caracteres especiales y números. Las URLs fueron reemplazadas por el token genérico `[URL]`, preservando la información sobre la presencia de enlaces sin introducir ruido léxico.
-- **Tokenización**: División del texto en palabras individuales.
+- **Limpieza**: Eliminación de números y caracteres especiales. Las URLs fueron reemplazadas por el token genérico `[URL]`, preservando la información sobre la presencia de enlaces sin introducir ruido léxico. Se conservaron los signos `!` y `?` porque forman parte de los patrones lingüísticos analizados.
+- **Tokenización**: División del texto normalizado en palabras individuales.
 - **Stopwords**: Se evaluará el impacto de mantener o eliminar stopwords mediante experimentos comparativos. Se entrenarán modelos en ambas condiciones para cuantificar el efecto de esta decisión.
 
 ## Propuesta de análisis
@@ -92,13 +94,14 @@ En esta sección se detalla la metodología experimental diseñada para cumplir 
 Se aplicará un pipeline de preprocesamiento estándar:
 
 - Conversión de texto a minúsculas.
-- Eliminación de caracteres especiales y números.
+- Eliminación de números y caracteres especiales, conservando `!` y `?` como posibles señales de estilo.
 - Reemplazo de URLs por el token genérico `[URL]`.
+- Eliminación de duplicados exactos por `(title, text)` antes de particionar, para evitar leakage entre splits.
 - Tokenización del texto.
 - Stopwords: se entrenarán modelos en dos condiciones —con y sin eliminación de stopwords— para cuantificar el impacto de esta decisión.
-- Evaluación de técnicas de lematización para reducir variaciones morfológicas.
+- No se aplica lematización en los baselines principales, para preservar las formas superficiales que pueden funcionar como señales discriminativas.
 
-Además, se analizará el impacto de mantener o eliminar elementos como signos de exclamación o palabras en mayúsculas, ya que podrían aportar información relevante para detectar contenido sensacionalista.
+Además, se conserva el texto crudo junto con las variantes limpias, de modo que experimentos posteriores puedan medir elementos como signos de exclamación o palabras en mayúsculas.
 
 #### Partición de datos
 
@@ -108,7 +111,18 @@ El dataset será dividido de forma temporal (ordenando por fecha de publicación
 - 15% validación
 - 15% prueba (artículos más recientes)
 
-Esta partición temporal es más representativa de un escenario realista que una partición aleatoria: el modelo se entrena sobre el pasado y se evalúa sobre artículos que no existían en el momento del entrenamiento. Si la partición genera desbalance en la proporción de clases, se ajustará manualmente. El conjunto de validación se utilizará para ajuste de hiperparámetros y detección de overfitting, mientras que el de prueba quedará reservado para la evaluación final.
+Esta partición temporal es más representativa de un escenario realista que una partición aleatoria: el modelo se entrena sobre el pasado y se evalúa sobre artículos que no existían en el momento del entrenamiento. Si la partición genera desbalance en la proporción de clases, se reportará explícitamente y se tendrá en cuenta al interpretar las métricas, pero no se reordenarán ejemplos manualmente para no romper el criterio temporal. El conjunto de validación se utilizará para ajuste de hiperparámetros y detección de overfitting, mientras que el de prueba quedará reservado para la evaluación final.
+
+#### Alcance de datos {#alcance-de-datos}
+
+El sesgo temático del EDA (reales concentradas en _politicsNews_ y _worldnews_; falsas con etiquetas más diversas) motiva dos alcances de corpus, aplicados **después** de deduplicación y filtrado de fechas:
+
+| Alcance | Criterio de inclusión | Uso en el trabajo |
+| :------ | :-------------------- | :---------------- |
+| **Subconjunto político** (experimento principal) | Reales: `subject = politicsNews`. Falsas: `subject = politics`. | Experimentos 1 (mejor modelo, ablación de fuente), 2, 3, 4 y 5. Es el corpus de referencia para la presentación de resultados. |
+| **Dataset completo** (control de sensibilidad) | Todas las noticias del corpus filtrado. | Solo Experimentos 1 (baselines BoW/TF-IDF): comparar si el F2 mejora al mezclar otros temas (`worldnews`, `News`, `left-news`, etc.). |
+
+La columna **subject** no se usa como feature en ningún modelo; el filtro anterior solo define **qué documentos** entran en cada split. El subconjunto político reduce el sesgo temático pero limita la generalización a noticias de ese dominio; por eso el dataset completo se conserva únicamente como contraste en la línea base.
 
 ### Experimento 1: Clasificación con modelos tradicionales (Baseline)
 

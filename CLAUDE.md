@@ -36,8 +36,8 @@ Two layers: a reusable Python package (`src/nlp/`) holds all logic; the notebook
 **`src/nlp/` modules:**
 - `paths.py` — single source of truth for all filesystem paths, `RANDOM_STATE = 42`, `DEV_MODE` (`NLP_DEV_MODE=1`), and the politics-subset subject lists. Import paths from here; never hardcode directories.
 - `io.py` — `load_split` / `load_splits` (Parquet preferido, fallback CSV; columnas selectivas) y `save_split` (Parquet + CSV).
-- `preprocessing.py` — text cleaning (`clean_text`, URL→`[URL]`), date parsing (multi-format), deduplication, and `run_preprocessing_pipeline()` which produces the temporal splits. Generates `clean_*` columns in both `_with_stopwords` / `_without_stopwords` variants (vectorizado + paralelo).
-- `modeling.py` — baseline grid engine: vectorizer + sklearn pipeline builders, `run_baseline_grid` (vectoriza una vez por config; hiperparámetros del clasificador sobre matrices sparse), `evaluate_best_configs_on_test` (test once), `get_linear_feature_weights` (coefficients for interpretability).
+- `preprocessing.py` — text cleaning (`clean_text`, eliminación de números, URL→`[URL]`, `normalize_source_markers`), date parsing (multi-format), deduplication, and `run_preprocessing_pipeline()` which produces the temporal splits. Generates `clean_*` columns in both `_with_stopwords` / `_without_stopwords` variants (vectorizado + paralelo). Tras cambios en limpieza, re-ejecutar notebook **02** antes de 03+.
+- `modeling.py` — baseline grid engine: vectorizer + sklearn pipeline builders, `run_baseline_grid` (vectoriza una vez por config; hiperparámetros del clasificador sobre matrices sparse), `evaluate_best_configs_on_test` (test once), `run_source_ablation` / `decide_source_normalization` (ablación de fuente), `get_linear_feature_weights` (coefficients for interpretability).
 - `embeddings.py` — carga GloVe con cache gensim (`.kv`) y embeddings de documento cacheados (`.npz`).
 - `transformers_data.py` — `NewsDataset` (tokenización lazy) y `prepare_transformer_inputs` para DistilBERT.
 - `metrics.py` — `compute_metrics` (the canonical metric dict) and `consolidate_results` which merges baseline/embedding/transformer CSVs into `results/metrics/all_model_results.csv`.
@@ -47,7 +47,7 @@ Two layers: a reusable Python package (`src/nlp/`) holds all logic; the notebook
 **Pipeline (run in order; later notebooks consume earlier outputs).** Notebook numbers ≠ experiment numbers: notebooks 01–02 are EDA/preprocessing, then notebook `0(N+3)` implements Experimento N.
 1. `01_eda.ipynb` — exploratory analysis → `results/figures/`
 2. `02_preprocessing_and_splits.ipynb` — runs the preprocessing pipeline → `data/processed/{politics,full}_{train,val,test}.{parquet,csv}`
-3. `03_baseline_models.ipynb` (Exp 1) — BoW/TF-IDF × LR/NB/LinearSVC grid + source ablation → `results/metrics/baseline_results.csv`, `results/models/`
+3. `03_baseline_models.ipynb` (Exp 1) — BoW/TF-IDF × LR/NB/LinearSVC grid + source ablation → `results/metrics/baseline_results.csv`, `results/metrics/source_ablation_results.csv`, `results/metrics/source_ablation_decision.json`, `results/models/`
 4. `04_linguistic_features.ipynb` (Exp 2) — **scaffold only**: 8 interpretable features (spaCy POS/NER + VADER) → LogisticRegression, plus title/body/combined sub-experiment. Code cells are TODO; `vaderSentiment` and an optional `src/nlp/features.py` are **not created yet**.
 5. `05_embeddings_and_transformers.ipynb` (Exp 3) — GloVe/Word2Vec + DistilBERT/BERT → `embedding_results.csv`, `transformer_results.csv`
 6. `06_feature_importance.ipynb` (Exp 4) — linear coefficients, adjectives per class
@@ -61,7 +61,7 @@ Data flow: `data/raw/` → `data/processed/` (splits Parquet/CSV) → `results/`
 - **Primary metric is `f2_fake`** (F2-score of the fake class, β=2). It is the selection criterion in the grid and the comparison metric across every experiment — a false negative (fake passed as real) is treated as costlier than a false positive. Don't switch to F1/accuracy for model selection.
 - **Temporal split, not random**: 70/15/15 ordered by publication date (train = oldest, test = newest). Validation/test may be class-imbalanced relative to train; this is expected. Hyperparameters are selected on **validation only**; test is evaluated exactly once.
 - **Two dataset scopes**: `politics` (real=`politicsNews`, fake=`politics`) is the main experiment — it controls for the strong topical bias in `subject`. `full` is a sensitivity control for baselines only. The `subject` column is **never** used as a feature.
-- **Source ablation** (notebook 03): retrain best model with source tokens (`reuters`, `ap`, `afp`) normalized to `[SOURCE]`. A large F2 drop means the dataset encodes source identity, in which case later experiments should run on source-normalized text.
+- **Source ablation** (notebook 03): retrain best model with source tokens (`reuters`, `ap`, `afp`) normalized to `[SOURCE]`. A large F2 drop (≥ `SOURCE_ABLATION_F2_DROP_THRESHOLD` in val) sets `use_source_normalization` in `source_ablation_decision.json`; notebooks 04+ deben leer ese JSON y aplicar `normalize_source_markers` al texto de entrada cuando corresponda.
 - Map experiment → notebook → ADR: each `docs/adr/experimento-0N-*.md` documents the *why* behind notebook `0(N+2)`. Read the relevant ADR before changing methodology.
 
 ## Gotchas

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from itertools import product
+from pathlib import Path
 
 import pandas as pd
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
@@ -13,7 +15,8 @@ from sklearn.svm import LinearSVC
 from tqdm.auto import tqdm
 
 from nlp.metrics import compute_metrics, metrics_to_row
-from nlp.paths import RANDOM_STATE
+from nlp.paths import RANDOM_STATE, SOURCE_ABLATION_F2_DROP_THRESHOLD
+from nlp.preprocessing import normalize_source_markers
 
 TEXT_FIELDS = {
     "title": "clean_title_text",
@@ -114,7 +117,20 @@ def config_from_row(row) -> dict:
     }
 
 
-def fit_pipeline_from_config(train: pd.DataFrame, config: dict) -> tuple[Pipeline, str]:
+def _text_series(
+    df: pd.DataFrame, text_col: str, normalize_source: bool = False
+) -> pd.Series:
+    series = df[text_col].fillna("")
+    if normalize_source:
+        return series.map(normalize_source_markers)
+    return series
+
+
+def fit_pipeline_from_config(
+    train: pd.DataFrame,
+    config: dict,
+    normalize_source: bool = False,
+) -> tuple[Pipeline, str]:
     text_col = get_text_col(config["text_field"], config["stopwords"])
     pipe = build_pipeline(
         config["vectorizer"],
@@ -123,7 +139,7 @@ def fit_pipeline_from_config(train: pd.DataFrame, config: dict) -> tuple[Pipelin
         config["model"],
         config["best_param"],
     )
-    pipe.fit(train[text_col].fillna(""), train["label"])
+    pipe.fit(_text_series(train, text_col, normalize_source), train["label"])
     return pipe, text_col
 
 
@@ -134,9 +150,14 @@ def predict_proba_scores(pipe: Pipeline, X):
 
 
 def evaluate_pipeline_on_split(
-    pipe: Pipeline, df: pd.DataFrame, text_col: str, split_name: str, extra: dict
+    pipe: Pipeline,
+    df: pd.DataFrame,
+    text_col: str,
+    split_name: str,
+    extra: dict,
+    normalize_source: bool = False,
 ) -> dict:
-    X = df[text_col].fillna("")
+    X = _text_series(df, text_col, normalize_source)
     y = df["label"]
     y_pred = pipe.predict(X)
     y_proba = predict_proba_scores(pipe, X)
@@ -248,6 +269,74 @@ def evaluate_best_configs_on_test(
         },
     )
     return pd.DataFrame([test_row]), best_row, pipe, text_col
+
+
+def _config_metadata(config_row, dataset_scope: str) -> dict:
+    return {
+        "model": config_row["model"],
+        "vectorizer": config_row["vectorizer"],
+        "text_field": config_row["text_field"],
+        "stopwords": config_row["stopwords"],
+        "ngram_range": config_row["ngram_range"],
+        "max_features": int(config_row["max_features"]),
+        "best_param": config_row["best_param"],
+        "dataset_scope": dataset_scope,
+    }
+
+
+def decide_source_normalization(
+    f2_original: float,
+    f2_normalized: float,
+    threshold: float = SOURCE_ABLATION_F2_DROP_THRESHOLD,
+) -> dict:
+    """Decide si los experimentos siguientes deben normalizar marcadores de fuente."""
+    drop = float(f2_original - f2_normalized)
+    return {
+        "use_source_normalization": drop >= threshold,
+        "f2_original_val": float(f2_original),
+        "f2_normalized_val": float(f2_normalized),
+        "f2_drop": drop,
+        "threshold": threshold,
+    }
+
+
+def save_source_ablation_decision(decision: dict, path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(decision, indent=2), encoding="utf-8")
+
+
+def run_source_ablation(
+    config_row,
+    train: pd.DataFrame,
+    val: pd.DataFrame,
+    test: pd.DataFrame,
+    dataset_scope: str = "politics",
+) -> pd.DataFrame:
+    """Reentrena la mejor config con texto original vs. fuentes normalizadas."""
+    config = config_from_row(config_row)
+    base_meta = _config_metadata(config_row, dataset_scope)
+    rows = []
+
+    for source_condition, normalize in (
+        ("original", False),
+        ("normalized", True),
+    ):
+        pipe, text_col = fit_pipeline_from_config(
+            train, config, normalize_source=normalize
+        )
+        for split_name, split_df in (("val", val), ("test", test)):
+            rows.append(
+                evaluate_pipeline_on_split(
+                    pipe,
+                    split_df,
+                    text_col,
+                    split_name,
+                    {**base_meta, "source_condition": source_condition},
+                    normalize_source=normalize,
+                )
+            )
+
+    return pd.DataFrame(rows)
 
 
 def get_linear_feature_weights(pipe: Pipeline):

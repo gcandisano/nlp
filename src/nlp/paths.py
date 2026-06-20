@@ -32,6 +32,10 @@ RESULTS_METRICS = PROJECT_ROOT / "results" / "metrics"
 RESULTS_MODELS = PROJECT_ROOT / "results" / "models"
 RESULTS_ERROR = PROJECT_ROOT / "results" / "error_analysis"
 
+# Ablación de fuente (Experimento 1): caída de F2 en val que activa [SOURCE].
+SOURCE_ABLATION_F2_DROP_THRESHOLD = 0.03
+SOURCE_ABLATION_DECISION = RESULTS_METRICS / "source_ablation_decision.json"
+
 
 def ensure_output_dirs() -> None:
     """Crea directorios de salida si no existen."""
