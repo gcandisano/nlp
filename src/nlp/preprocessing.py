@@ -1,8 +1,15 @@
 """Funciones reutilizables de preprocesamiento de texto."""
 import re
-from typing import Optional
 
 import pandas as pd
+
+from nlp.paths import (
+    DATA_PROCESSED,
+    DATA_RAW,
+    POLITICS_FAKE_OPTIONAL,
+    POLITICS_FAKE_SUBJECTS,
+    POLITICS_REAL_SUBJECTS,
+)
 
 try:
     import nltk
@@ -66,7 +73,7 @@ def remove_punctuation(text: str, keep_exclamation_question: bool = True) -> str
     return re.sub(r"[^\w\s]", " ", text)
 
 
-def remove_stopwords_from_tokens(tokens: list[str], stop_set: Optional[set] = None) -> list[str]:
+def remove_stopwords_from_tokens(tokens: list[str], stop_set: set | None = None) -> list[str]:
     stop_set = stop_set or _get_stopwords()
     return [t for t in tokens if t not in stop_set]
 
@@ -218,8 +225,6 @@ def class_distribution_report(df: pd.DataFrame, label_col: str = "label") -> pd.
 
 
 def filter_politics_subset(df: pd.DataFrame, include_optional: bool = False) -> pd.DataFrame:
-    from src.paths import POLITICS_FAKE_OPTIONAL, POLITICS_FAKE_SUBJECTS, POLITICS_REAL_SUBJECTS
-
     fake_subjects = list(POLITICS_FAKE_SUBJECTS)
     if include_optional:
         fake_subjects.extend(POLITICS_FAKE_OPTIONAL)
@@ -227,3 +232,35 @@ def filter_politics_subset(df: pd.DataFrame, include_optional: bool = False) -> 
     mask_real = (df["label"] == 0) & (df["subject"].isin(POLITICS_REAL_SUBJECTS))
     mask_fake = (df["label"] == 1) & (df["subject"].isin(fake_subjects))
     return df[mask_real | mask_fake].copy()
+
+
+def _save_splits(dataset: pd.DataFrame, prefix: str) -> None:
+    train, val, test = temporal_split(dataset)
+    for name, split in [("train", train), ("val", val), ("test", test)]:
+        path = DATA_PROCESSED / f"{prefix}_{name}.csv"
+        split.to_csv(path, index=False)
+        print(f"\n{prefix}_{name}: {len(split):,} rows")
+        print(class_distribution_report(split))
+
+
+def run_preprocessing_pipeline() -> None:
+    """Lee datos raw, preprocesa y escribe splits en data/processed/."""
+    fake_df = pd.read_csv(DATA_RAW / "Fake.csv")
+    true_df = pd.read_csv(DATA_RAW / "True.csv")
+    fake_df["label"] = 1
+    true_df["label"] = 0
+    df = pd.concat([fake_df, true_df], ignore_index=True)
+    df = parse_dates(df)
+    df = df.dropna(subset=["parsed_date"]).reset_index(drop=True)
+    df, dedup_stats = drop_content_duplicates(df)
+    print(
+        f"Deduplicación title+text: {dedup_stats['removed']:,} filas eliminadas "
+        f"({dedup_stats['rows_before']:,} -> {dedup_stats['rows_after']:,})"
+    )
+    if dedup_stats["label_conflicts"]:
+        print(f"  Grupos duplicados con etiquetas distintas: {dedup_stats['label_conflicts']}")
+    df = add_clean_text_columns(df)
+
+    politics_df = filter_politics_subset(df, include_optional=False)
+    _save_splits(politics_df, "politics")
+    _save_splits(df, "full")

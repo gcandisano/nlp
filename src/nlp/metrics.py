@@ -5,13 +5,14 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import (
     accuracy_score,
-    confusion_matrix,
     f1_score,
     fbeta_score,
     precision_score,
     recall_score,
     roc_auc_score,
 )
+
+from nlp.paths import RESULTS_METRICS
 
 
 def compute_metrics(y_true, y_pred, y_proba=None) -> dict:
@@ -44,14 +45,12 @@ def metrics_to_row(
 
 
 def consolidate_results(
-    baseline_path,
+    baseline_path=None,
     embedding_path=None,
     transformer_path=None,
     output_path=None,
 ) -> pd.DataFrame:
     """Combina resultados de todos los experimentos."""
-    from src.paths import RESULTS_METRICS
-
     frames = []
     baseline_path = baseline_path or (RESULTS_METRICS / "baseline_results.csv")
     if baseline_path.exists():

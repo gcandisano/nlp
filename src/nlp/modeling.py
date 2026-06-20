@@ -11,8 +11,8 @@ from sklearn.pipeline import Pipeline
 from sklearn.svm import LinearSVC
 from tqdm.auto import tqdm
 
-from src.metrics import compute_metrics, metrics_to_row
-from src.paths import RANDOM_STATE
+from nlp.metrics import compute_metrics, metrics_to_row
+from nlp.paths import RANDOM_STATE
 
 TEXT_FIELDS = {
     "title": "clean_title_text",
