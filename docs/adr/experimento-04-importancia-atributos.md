@@ -29,7 +29,7 @@ Se usa el **mejor modelo lineal** del subconjunto político según F2 en validac
 
 ### Análisis de adjetivos (validación Hipótesis 1)
 
-Con **spaCy** (`en_core_web_lg`):
+Con **spaCy** (`en_core_web_sm`):
 
 1. Extraer adjetivos por clase (fake vs. real) del subconjunto político.
 2. Tabla de adjetivos más frecuentes por clase.

@@ -36,7 +36,7 @@ Se construye un vector de **8 features explícitas** por artículo:
 
 | Herramienta | Modelo / versión | Motivo de elección |
 | :---------- | :--------------- | :----------------- |
-| **spaCy** | `en_core_web_lg` | Entrenado sobre OntoNotes (texto periodístico); mejor balance precisión/velocidad que NLTK; más integrable que Stanford CoreNLP |
+| **spaCy** | `en_core_web_sm` | Entrenado sobre OntoNotes (texto periodístico); POS y NER equivalentes a `lg` para estas features (no se usan word vectors); mejor balance precisión/velocidad que NLTK; más integrable que Stanford CoreNLP |
 | **VADER** | `vaderSentiment` | Diseñado para texto informal; maneja MAYÚSCULAS, `!!!` e hiperbole; score numérico interpretable y liviano frente a Transformers de sentimiento |
 
 ### Clasificador
@@ -73,7 +73,7 @@ Mismo subconjunto político y split temporal que Experimento 1. Si la ablación 
 | Transformers para sentimiento (BERT-based) | Menos interpretable y más costoso; VADER cubre el patrón buscado |
 | NLTK para POS/NER | Menor precisión y más lento que spaCy en este dominio |
 | Features léxicas adicionales (TF-IDF de adjetivos) | Se reserva el análisis de adjetivos al Experimento 4 |
-| spaCy `en_core_web_sm` | Modelo pequeño sin word vectors; `lg` mejora POS y NER |
+| spaCy `en_core_web_lg` | Agrega word vectors de 300d que este experimento no usa (las features dependen de POS/NER y segmentación, no de similitud vectorial); ~560 MB y más RAM para una mejora marginal de POS/NER |
 | TextBlob para sentimiento | No maneja tan bien énfasis tipográfico y exclamaciones repetidas |
 
 ## Consecuencias
