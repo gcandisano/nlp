@@ -6,7 +6,16 @@ import torch
 from torch.utils.data import Dataset
 
 
+def truncate_for_transformer(text: str, max_chars: int = 3000) -> str:
+    """Recorta texto largo antes de tokenizar (conserva el inicio del artículo)."""
+    cleaned = str(text).strip()
+    if len(cleaned) <= max_chars:
+        return cleaned
+    return cleaned[:max_chars]
+
+
 def prepare_transformer_input(row, max_chars: int = 3000) -> str:
+    """Legacy: título + cuerpo crudo. Preferir `prepare_transformer_texts`."""
     title = str(row.get("title", ""))
     body = str(row.get("text", ""))
     full = f"{title} {body}".strip()
@@ -22,6 +31,11 @@ def prepare_transformer_inputs(df, max_chars: int = 3000) -> list[str]:
         prepare_transformer_input(row, max_chars=max_chars)
         for row in df.to_dict("records")
     ]
+
+
+def prepare_transformer_texts(texts, max_chars: int = 3000) -> list[str]:
+    """Prepara textos ya limpios para fine-tuning (misma fuente que embeddings)."""
+    return [truncate_for_transformer(t, max_chars=max_chars) for t in texts]
 
 
 class NewsDataset(Dataset):

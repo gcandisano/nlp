@@ -39,7 +39,7 @@ Two layers: a reusable Python package (`src/nlp/`) holds all logic; the notebook
 - `preprocessing.py` — text cleaning (`clean_text`, eliminación de números, URL→`[URL]`, `normalize_source_markers`), date parsing (multi-format), deduplication, and `run_preprocessing_pipeline()` which produces the temporal splits. Generates `clean_*` columns in both `_with_stopwords` / `_without_stopwords` variants (vectorizado + paralelo). Tras cambios en limpieza, re-ejecutar notebook **02** antes de 03+.
 - `modeling.py` — baseline grid engine: vectorizer + sklearn pipeline builders, `run_baseline_grid` (vectoriza una vez por config; hiperparámetros del clasificador sobre matrices sparse), `evaluate_best_configs_on_test` (test once), `run_source_ablation` / `decide_source_normalization` (ablación de fuente), `get_linear_feature_weights` (coefficients for interpretability).
 - `features.py` — extracción cacheada de 8 features lingüísticas (spaCy + VADER), tuning de LR sin scaler, coeficientes interpretables (Experimento 2).
-- `embeddings.py` — carga GloVe con cache gensim (`.kv`) y embeddings de documento cacheados (`.npz`).
+- `embeddings.py` — carga GloVe con cache gensim (`.kv`), Word2Vec de dominio, mean pooling cacheado (`.npz`) y tuning LR/SVM con scaler (Experimento 3).
 - `transformers_data.py` — `NewsDataset` (tokenización lazy) y `prepare_transformer_inputs` para DistilBERT.
 - `metrics.py` — `compute_metrics` (the canonical metric dict) and `consolidate_results` which merges baseline/linguistic/embedding/transformer CSVs into `results/metrics/all_model_results.csv`.
 - `plotting.py` — matplotlib/seaborn helpers; `save_figure` writes to `results/figures/`.
@@ -50,7 +50,7 @@ Two layers: a reusable Python package (`src/nlp/`) holds all logic; the notebook
 2. `02_preprocessing_and_splits.ipynb` — runs the preprocessing pipeline → `data/processed/{politics,full}_{train,val,test}.{parquet,csv}`
 3. `03_baseline_models.ipynb` (Exp 1) — BoW/TF-IDF × LR/NB/LinearSVC grid + source ablation → `results/metrics/baseline_results.csv`, `results/metrics/source_ablation_results.csv`, `results/metrics/source_ablation_decision.json`, `results/models/`
 4. `04_linguistic_features.ipynb` (Exp 2) — 8 interpretable features (spaCy POS/NER + VADER) → LogisticRegression sin scaler, sub-experimento título/cuerpo/combinado → `linguistic_features_results.csv`, cache en `data/processed/linguistic_features_*.parquet`.
-5. `05_embeddings_and_transformers.ipynb` (Exp 3) — GloVe/Word2Vec + DistilBERT/BERT → `embedding_results.csv`, `transformer_results.csv`
+5. `05_embeddings_and_transformers.ipynb` (Exp 3) — GloVe/Word2Vec + DistilBERT (grilla HP en val) → `embedding_results.csv`, `transformer_results.csv`, `transformer_val_search.csv`
 6. `06_feature_importance.ipynb` (Exp 4) — linear coefficients, adjectives per class
 7. `07_error_analysis.ipynb` (Exp 5) — manual FP/FN taxonomy, model comparison
 

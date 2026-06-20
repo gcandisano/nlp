@@ -71,7 +71,7 @@ Abrir `notebooks/` y ejecutar **en orden**, reiniciando el kernel si acabás de 
 | 2 | `02_preprocessing_and_splits.ipynb` | Splits en `data/processed/{politics,full}_{train,val,test}.{parquet,csv}` |
 | 3 | `03_baseline_models.ipynb` | `results/metrics/baseline_results.csv`, modelos en `results/models/` |
 | 4 | `04_linguistic_features.ipynb` | `linguistic_features_results.csv`, cache en `data/processed/linguistic_features_*.parquet` |
-| 5 | `05_embeddings_and_transformers.ipynb` | `embedding_results.csv`, `transformer_results.csv`; cache en `data/embeddings/` |
+| 5 | `05_embeddings_and_transformers.ipynb` | `embedding_results.csv`, `transformer_results.csv`, `transformer_val_search.csv`; cache GloVe/Word2Vec en `data/embeddings/` |
 | 6 | `06_feature_importance.ipynb` | `feature_importance.csv`, `adjectives_by_class.csv` |
 | 7 | `07_error_analysis.ipynb` | `results/metrics/all_model_results.csv`, análisis de errores |
 
@@ -93,7 +93,7 @@ Con `NLP_DEV_MODE=1` (lee la variable al importar `nlp.paths`):
 | :------- | :----- |
 | **03** | Grilla `politics` limitada a 20 combinaciones; se omite `full_dataset` |
 | **04** | Muestra al 10% por split (extracción spaCy más rápida) |
-| **05** | `SAMPLE_FRAC=0.1` en DistilBERT (10% de train/val) |
+| **05** | `SAMPLE_FRAC=0.1` en DistilBERT (10% solo de **train**); grilla HP acotada a 4 combos |
 
 No usar este modo para los **resultados finales del TP**: la metodología y las métricas reportadas deben salir de una corrida completa sin `NLP_DEV_MODE`.
 
@@ -108,7 +108,7 @@ uv run jupyter lab
 Luego ejecutar notebooks **01 → 07** en orden, sin `NLP_DEV_MODE`. Tiempos orientativos:
 
 - **03** — grilla de baselines (la parte más lenta en CPU).
-- **05** — primera vez descarga GloVe (~850 MB); corridas siguientes usan cache `.kv` y `.npz`. DistilBERT en CPU puede tardar muchas horas; con poca RAM/GPU podés bajar `SAMPLE_FRAC` manualmente en el notebook (p. ej. `0.1`).
+- **05** — primera vez descarga GloVe (~850 MB) y entrena Word2Vec en train; corridas siguientes usan cache. DistilBERT en CPU puede tardar muchas horas; para entrega completa conviene GPU (local o Colab). Con poca RAM podés usar `NLP_DEV_MODE=1` para iterar.
 
 ## Detalle por notebook
 
@@ -118,14 +118,14 @@ Luego ejecutar notebooks **01 → 07** en orden, sin `NLP_DEV_MODE`. Tiempos ori
 | `02_preprocessing_and_splits.ipynb` | **Preprocesamiento y partición temporal** 70/15/15 → `data/processed/` | — |
 | `03_baseline_models.ipynb` | Modelos tradicionales BoW/TF-IDF | [Experimento 1](docs/adr/experimento-01-baseline-modelos-tradicionales.md) |
 | `04_linguistic_features.ipynb` | Features lingüísticas interpretables (spaCy + VADER, LR sin scaler) | [Experimento 2](docs/adr/experimento-02-features-linguisticas.md) |
-| `05_embeddings_and_transformers.ipynb` | Embeddings (GloVe) y Transformers (DistilBERT) | [Experimento 3](docs/adr/experimento-03-embeddings-transformers.md) |
+| `05_embeddings_and_transformers.ipynb` | Embeddings (GloVe + Word2Vec) y DistilBERT con grilla HP | [Experimento 3](docs/adr/experimento-03-embeddings-transformers.md) |
 | `06_feature_importance.ipynb` | Importancia de atributos y análisis de adjetivos por clase | [Experimento 4](docs/adr/experimento-04-importancia-atributos.md) |
 | `07_error_analysis.ipynb` | Análisis manual de errores (falsos positivos / falsos negativos) | [Experimento 5](docs/adr/experimento-05-analisis-errores.md) |
 
 ## Notas
 
 - El notebook **03** entrena una grilla amplia de baselines; puede tardar bastante. En desarrollo usar `NLP_DEV_MODE=1`.
-- El notebook **05** reutiliza checkpoints de DistilBERT si existen en `results/models/distilbert_checkpoints/` (`REUSE_EXISTING_CHECKPOINT = True`).
+- El notebook **05** guarda checkpoints por combinación de hiperparámetros en `results/models/distilbert_checkpoints/` y exporta el mejor modelo a `results/models/best_distilbert`.
 - El split es **temporal** (no aleatorio); validación y test pueden quedar levemente desbalanceados respecto a train.
 - Tras instalar o actualizar dependencias, reiniciar el kernel de Jupyter si ya estaba abierto.
 - Desarrollo con uv: `uv sync --group dev` instala ruff (`uv run ruff check src/nlp`).

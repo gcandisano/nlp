@@ -74,7 +74,7 @@ Basándonos en los objetivos planteados, proponemos los siguientes experimentos:
 
 - **Clasificación supervisada con modelos tradicionales**: Entrenar modelos de **Regresión Logística**, **Naive Bayes** y **SVM** utilizando representaciones de **Bag of Words** y **TF-IDF** como línea de base. Incluye una ablación de marcadores de fuente para cuantificar el sesgo del dataset.
 - **Clasificación con features lingüísticas interpretables**: Extraer un conjunto de características lingüísticas explícitas y entrenar un clasificador logístico sobre ellas. Incluye la comparación título/cuerpo/combinado para validar la Hipótesis 2.
-- **Comparación con modelos de embeddings contextuales**: Implementar modelos basados en embeddings preentrenados (**GloVe**, **Word2Vec**) y Transformers (**DistilBERT**, **BERT**) para la clasificación de las noticias.
+- **Comparación con modelos de embeddings contextuales**: Implementar modelos basados en embeddings preentrenados (**GloVe**, **Word2Vec**) y Transformers (**DistilBERT**) para la clasificación de las noticias.
 - **Análisis de errores y explicabilidad**: Evaluar la **importancia de atributos** e identificar los patrones de error más frecuentes para entender las limitaciones de los modelos.
 
 **Hipótesis de investigación:**
@@ -242,13 +242,14 @@ Se implementarán modelos basados en embeddings preentrenados y arquitecturas Tr
 
 Cada noticia será representada mediante el promedio de los embeddings de sus palabras, utilizados luego como entrada a un clasificador logístico o SVM. Se utilizarán los vectores **GloVe** preentrenados en Wikipedia + Gigaword (`glove.6B.100d`: 6B tokens, 100 dimensiones): ese corpus incluye texto periodístico de un dominio similar al del dataset, lo que mejora la cobertura de vocabulario. Se eligió la variante 6B/100d en lugar de 840B/300d porque, para una representación de documento por promedio de vectores en una clasificación binaria de señal mayormente léxica, la ganancia de la variante grande es marginal frente a su costo (~2 GB vs. ~850 MB de descarga, y 3× memoria por vector). Como punto de comparación se entrenará además un **Word2Vec** propio sobre el dataset, para evaluar si los embeddings específicos del dominio capturan mejor el vocabulario de noticias falsas del período 2015-2017.
 
-**Transformers (DistilBERT, BERT)**
+**Transformers (DistilBERT)**
 
-Se utilizarán modelos preentrenados de Hugging Face con fine-tuning sobre el dataset. Se priorizará **DistilBERT** como modelo principal, ya que retiene el 97% del rendimiento de BERT-base con el 60% de sus parámetros y el doble de velocidad de inferencia, lo que lo hace más práctico para fine-tuning en el contexto de un proyecto de curso. BERT-base se entrenará en paralelo para comparación directa. No se utilizarán modelos de mayor escala (RoBERTa-large, GPT, LLaMA) porque el fine-tuning supervisado de clasificación con esos modelos requiere recursos computacionales que exceden el alcance de este trabajo. El entrenamiento incluirá:
+Se utilizará **DistilBERT** (`distilbert-base-uncased`) con fine-tuning supervisado vía Hugging Face. Retiene ~97% del rendimiento de BERT-base con el 60% de sus parámetros y el doble de velocidad de inferencia, lo que lo hace práctico en el contexto de un proyecto de curso. **BERT-base no se entrenará en el entorno local** (CPU): el costo computacional excede el alcance del TP; DistilBERT es suficiente para evaluar la ganancia contextual. Como extensión opcional, la Parte B puede ejecutarse en **Google Colab con GPU**. No se utilizarán modelos de mayor escala (RoBERTa-large, GPT, LLaMA). El entrenamiento incluirá:
 
-- Tokenización utilizando el tokenizer oficial del modelo
-- Ajuste de pesos del modelo mediante fine-tuning
-- Evaluación sobre el conjunto de validación con early stopping sobre F2-score
+- Tokenización con el tokenizer oficial del modelo
+- Texto de entrada alineado con el preprocesamiento (`clean_full_text_without_stopwords`) y la decisión de ablación de fuente del Experimento 1
+- Ajuste de pesos mediante fine-tuning
+- Grilla de hiperparámetros en validación con early stopping sobre F2-score; evaluación en test una sola vez con la mejor configuración
 
 #### Entrenamiento y optimización (Transformers)
 

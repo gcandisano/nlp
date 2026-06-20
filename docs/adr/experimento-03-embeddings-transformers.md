@@ -34,20 +34,23 @@ Se prioriza GloVe preentrenado; Word2Vec propio sirve como contraste de dominio.
 | Modelo | Rol | Motivo |
 | :----- | :-- | :----- |
 | **DistilBERT** (`distilbert-base-uncased`) | Modelo principal | ~97% del rendimiento de BERT-base con 60% de parámetros y 2× velocidad de inferencia |
-| **BERT-base** (`bert-base-uncased`) | Comparación directa | Referencia estándar para medir trade-off precisión vs. costo de DistilBERT |
 
 **Protocolo de entrenamiento:**
 
 - Tokenizer oficial de Hugging Face.
+- Texto de entrada: `clean_full_text_without_stopwords` (misma limpieza que embeddings); se respeta la decisión de ablación de fuente del Exp. 1.
 - Fine-tuning supervisado de clasificación binaria.
-- Early stopping sobre **F2 de validación**.
-- Hiperparámetros a ajustar: learning rate, batch size, épocas, warmup steps, scheduler.
+- Grilla de hiperparámetros en **validación** (F2 fake); early stopping por época.
+- Hiperparámetros a ajustar: learning rate, batch size, épocas, warmup ratio y scheduler lineal.
+- **Test se evalúa una sola vez** con la mejor configuración de validación.
 
-Si hay poca GPU/RAM, se permite reducir la fracción de datos de entrenamiento en DistilBERT (ej. 10%) como medida pragmática.
+Si hay poca GPU/RAM, `NLP_DEV_MODE=1` submuestrea solo el **train** (ej. 10%); la validación permanece completa.
 
 ### Modelos descartados explícitamente
 
 No se usan RoBERTa-large, GPT, LLaMA ni otros modelos de gran escala: el fine-tuning supervisado requiere recursos que exceden el alcance del TP.
+
+**BERT-base** (`bert-base-uncased`) se descartó en la implementación local: el fine-tuning en CPU es impracticable para el alcance del TP (~horas por corrida vs. minutos con DistilBERT). DistilBERT ya cubre la comparación contextual; BERT-base queda como referencia bibliográfica. Opcionalmente, la Parte B puede ejecutarse en **Google Colab con GPU** si se desea extender el experimento.
 
 FastText se menciona en el informe como alternativa teórica; en la implementación actual se prioriza GloVe + Word2Vec por cobertura y simplicidad.
 
@@ -65,6 +68,7 @@ Mismas métricas que Experimentos 1 y 2. F2 como métrica principal para tabla c
 | RoBERTa-large | Requiere GPU con mucha VRAM; fuera del alcance del proyecto |
 | ULMFiT / modelos recurrentes | Transformers son el estándar actual y están disponibles vía Hugging Face |
 | Max pooling en lugar de mean pooling | Mean pooling es convención establecida para document embeddings; menos sensible a outliers |
+| BERT-base en CPU local | Fine-tuning impracticable sin GPU; DistilBERT cubre el rol contextual. Extensión opcional vía Colab |
 
 ## Consecuencias
 

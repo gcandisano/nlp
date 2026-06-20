@@ -37,6 +37,11 @@ SOURCE_ABLATION_F2_DROP_THRESHOLD = 0.03
 SOURCE_ABLATION_DECISION = RESULTS_METRICS / "source_ablation_decision.json"
 
 
+def word2vec_model_path(prefix: str, dim: int = 100) -> Path:
+    """Ruta del modelo Word2Vec entrenado en corpus (Experimento 3)."""
+    return DATA_EMBEDDINGS / f"{prefix}_word2vec_{dim}d.model"
+
+
 def linguistic_features_cache_path(
     prefix: str,
     field: str,
