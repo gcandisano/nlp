@@ -37,6 +37,20 @@ SOURCE_ABLATION_F2_DROP_THRESHOLD = 0.03
 SOURCE_ABLATION_DECISION = RESULTS_METRICS / "source_ablation_decision.json"
 
 
+def linguistic_features_cache_path(
+    prefix: str,
+    field: str,
+    split: str,
+    *,
+    normalize_source: bool = False,
+) -> Path:
+    """Ruta Parquet para cache de features lingüísticas (Experimento 2)."""
+    suffix = "_norm" if normalize_source else ""
+    return (
+        DATA_PROCESSED / f"linguistic_features_{prefix}_{field}_{split}{suffix}.parquet"
+    )
+
+
 def ensure_output_dirs() -> None:
     """Crea directorios de salida si no existen."""
     for path in (

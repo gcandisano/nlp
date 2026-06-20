@@ -49,6 +49,7 @@ def consolidate_results(
     baseline_path=None,
     embedding_path=None,
     transformer_path=None,
+    linguistic_path=None,
     output_path=None,
 ) -> pd.DataFrame:
     """Combina resultados de todos los experimentos."""
@@ -61,6 +62,16 @@ def consolidate_results(
             frames.append(test_rows if not test_rows.empty else baseline_df)
         else:
             frames.append(baseline_df)
+
+    if linguistic_path is None:
+        linguistic_path = RESULTS_METRICS / "linguistic_features_results.csv"
+    if linguistic_path.exists():
+        linguistic_df = pd.read_csv(linguistic_path)
+        if "split" in linguistic_df.columns:
+            test_rows = linguistic_df[linguistic_df["split"] == "test"]
+            frames.append(test_rows if not test_rows.empty else linguistic_df)
+        else:
+            frames.append(linguistic_df)
 
     if embedding_path is None:
         embedding_path = RESULTS_METRICS / "embedding_results.csv"

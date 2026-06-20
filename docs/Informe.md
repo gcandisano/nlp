@@ -184,7 +184,9 @@ Se construirá un conjunto de features lingüísticas explícitas y se entrenar�
 
 #### ¿Cómo se va a realizar?
 
-**Extracción de features**: Se utilizarán las bibliotecas **spaCy** y **VADER** para extraer las siguientes características por artículo:
+**Extracción de features**: Se utilizarán las bibliotecas **spaCy** y **VADER** sobre las columnas de texto **crudo** (`title_text`, `body_text`, `full_text`) generadas en el preprocesamiento — no las columnas `clean_*`, porque VADER, las mayúsculas y los signos de exclamación requieren casing y puntuación originales. Las URLs se normalizan a `[URL]` antes de la extracción; si la ablación de fuente del Experimento 1 activa la normalización, los marcadores de agencia (`reuters`, `ap`, `afp`) se reemplazan por `[SOURCE]`. Las features se cachean en `data/processed/` para evitar re-procesar spaCy en cada corrida.
+
+Se extraen las siguientes características por artículo:
 
 | Feature             | Descripción y justificación                                                                                                                              |
 | :------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -195,15 +197,28 @@ Se construirá un conjunto de features lingüísticas explícitas y se entrenar�
 | `sentimiento_vader` | Score de sentimiento compuesto (VADER). Valores extremos (muy positivo o muy negativo) pueden indicar polarización del contenido.                        |
 | `densidad_ner`      | Entidades nombradas por oración (spaCy NER). Las fake news en este corpus mencionan figuras políticas específicas con mucha más frecuencia.              |
 | `freq_url`          | Frecuencia del token `[URL]` por artículo. Las fake news de origen en redes sociales suelen incluir más referencias a enlaces externos.                  |
-| `freq_pronombres`   | Frecuencia de pronombres en 1.ª y 2.ª persona ("I", "you", "we"). El periodismo formal tiende a evitarlos; el contenido informal los usa con frecuencia. |
+| `freq_pronombres`   | Ratio de pronombres en 1.ª y 2.ª persona (spaCy, morph) sobre el total de tokens del artículo. Normaliza por longitud; el periodismo formal tiende a evitarlos. |
+
+**Definiciones operativas** (implementadas en `src/nlp/features.py`):
+
+| Feature | Fórmula |
+| :------ | :------ |
+| `ratio_exclamacion` | conteo de `!` / max(nº oraciones, 1) |
+| `ratio_mayusculas` | palabras isalpha & isupper & len>1 / max(nº palabras, 1) |
+| `long_oracion_prom` | media de tokens por oración (spaCy) |
+| `ratio_adj_sust` | ADJ / max(NOUN + PROPN, 1) |
+| `sentimiento_vader` | score compuesto VADER |
+| `densidad_ner` | entidades nombradas / max(nº oraciones, 1) |
+| `freq_url` | conteo del token `[URL]` por artículo |
+| `freq_pronombres` | PRON 1.ª/2.ª persona / max(nº tokens, 1) |
 
 Se eligió **spaCy** (modelo `en_core_web_sm`) porque sus modelos de inglés fueron entrenados sobre OntoNotes, un corpus de texto periodístico. Esto los hace especialmente precisos para el dominio de noticias, tanto para POS tagging como para NER. Se optó por el modelo `sm` y no por `en_core_web_lg`: las features de este experimento dependen de POS tagging, NER y segmentación de oraciones —cuya precisión es prácticamente idéntica entre ambos modelos, ya que comparten arquitectura y datos de entrenamiento— y no de word vectors, que son la única ventaja real de `lg`. Así se evita una descarga de ~560 MB y mayor consumo de memoria sin pérdida apreciable de calidad. Frente a alternativas como NLTK (menos preciso, más lento) o Stanford CoreNLP (difícil de integrar desde Python), spaCy ofrece el mejor balance entre precisión y velocidad para este dominio.
 
 Se eligió **VADER** (Valence Aware Dictionary and sEntiment Reasoner) porque fue diseñado específicamente para texto informal y cargado emocionalmente. Maneja nativamente palabras en MAYÚSCULAS, signos de exclamación repetidos y lenguaje hiperbólico, que son exactamente los patrones esperados en contenido sensacionalista. A diferencia de modelos de sentimiento basados en Transformers, produce un score numérico directamente interpretable y es computacionalmente liviano, lo que lo hace adecuado como feature de entrada a un clasificador externo.
 
-**Clasificador**: Se utilizará **Regresión Logística** (en lugar de Random Forest, SVM o redes neuronales). La elección es deliberada: el objetivo de este experimento no es maximizar la performance sino entender qué features son discriminativas. Los coeficientes de un modelo logístico son directamente interpretables —un coeficiente alto en `ratio_exclamacion` significa que los signos de exclamación predicen contenido falso—, mientras que los modelos de caja negra no permiten esa lectura directa.
+**Clasificador**: Se utilizará **Regresión Logística** (en lugar de Random Forest, SVM o redes neuronales), **sin** `StandardScaler` previo — a diferencia del Experimento 3 sobre embeddings. La elección es deliberada: el objetivo no es maximizar la performance sino entender qué features son discriminativas en sus unidades originales. Los coeficientes son directamente interpretables —un coeficiente alto en `ratio_exclamacion` significa que los signos de exclamación predicen contenido falso—. La regularización `C` se selecciona en validación entre {0.1, 1, 10} por F2 fake.
 
-**Sub-experimento: Título vs. cuerpo vs. combinado**: Se entrenará el modelo del Experimento 1 en tres condiciones: solo columna _title_, solo columna _text_, y _title + text_ concatenados. Esto valida directamente la Hipótesis 2 y determina dónde viven los patrones lingüísticos más discriminativos.
+**Sub-experimento: Título vs. cuerpo vs. combinado**: Se extraen features y se entrena el clasificador logístico en tres condiciones: solo `title_text`, solo `body_text`, y `full_text` concatenado. Esto valida la Hipótesis 2 y determina dónde viven los patrones lingüísticos más discriminativos.
 
 #### Evaluación
 

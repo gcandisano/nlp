@@ -65,6 +65,23 @@ Esto valida la **Hipótesis 2**: el cuerpo completo aporta más patrones lingü�
 
 Mismo subconjunto político y split temporal que Experimento 1. Si la ablación de fuente del Exp. 1 muestra caída grande de F2, las features se extraen sobre texto con fuentes normalizadas a `[SOURCE]`.
 
+### Definiciones operativas
+
+Las features se calculan sobre texto crudo (`title_text`, `body_text`, `full_text`), no sobre columnas `clean_*`. Las URLs se reemplazan por `[URL]` antes del análisis.
+
+| Feature | Fórmula |
+| :------ | :------ |
+| `ratio_exclamacion` | `#('!') / max(n_oraciones, 1)` |
+| `ratio_mayusculas` | palabras isalpha & isupper & len>1 / max(n_palabras, 1) |
+| `long_oracion_prom` | media de tokens por oración (spaCy `doc.sents`) |
+| `ratio_adj_sust` | `#ADJ / max(#NOUN + #PROPN, 1)` |
+| `sentimiento_vader` | score compuesto VADER |
+| `densidad_ner` | `#entidades / max(n_oraciones, 1)` |
+| `freq_url` | conteo de `[URL]` por artículo |
+| `freq_pronombres` | `#PRON 1.ª/2.ª persona / max(n_tokens, 1)` |
+
+El clasificador es Regresión Logística **sin** `StandardScaler`, para que los coeficientes permanezcan en unidades originales. Implementación: `src/nlp/features.py`; cache: `data/processed/linguistic_features_*.parquet`.
+
 ## Alternativas consideradas
 
 | Alternativa | Por qué se descartó |

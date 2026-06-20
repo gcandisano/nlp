@@ -70,7 +70,7 @@ Abrir `notebooks/` y ejecutar **en orden**, reiniciando el kernel si acabás de 
 | 1 | `01_eda.ipynb` | Figuras exploratorias en `results/figures/` |
 | 2 | `02_preprocessing_and_splits.ipynb` | Splits en `data/processed/{politics,full}_{train,val,test}.{parquet,csv}` |
 | 3 | `03_baseline_models.ipynb` | `results/metrics/baseline_results.csv`, modelos en `results/models/` |
-| 4 | `04_linguistic_features.ipynb` | _Scaffold_ (Exp. 2 pendiente) |
+| 4 | `04_linguistic_features.ipynb` | `linguistic_features_results.csv`, cache en `data/processed/linguistic_features_*.parquet` |
 | 5 | `05_embeddings_and_transformers.ipynb` | `embedding_results.csv`, `transformer_results.csv`; cache en `data/embeddings/` |
 | 6 | `06_feature_importance.ipynb` | `feature_importance.csv`, `adjectives_by_class.csv` |
 | 7 | `07_error_analysis.ipynb` | `results/metrics/all_model_results.csv`, análisis de errores |
@@ -92,6 +92,7 @@ Con `NLP_DEV_MODE=1` (lee la variable al importar `nlp.paths`):
 | Notebook | Efecto |
 | :------- | :----- |
 | **03** | Grilla `politics` limitada a 20 combinaciones; se omite `full_dataset` |
+| **04** | Muestra al 10% por split (extracción spaCy más rápida) |
 | **05** | `SAMPLE_FRAC=0.1` en DistilBERT (10% de train/val) |
 
 No usar este modo para los **resultados finales del TP**: la metodología y las métricas reportadas deben salir de una corrida completa sin `NLP_DEV_MODE`.
@@ -116,7 +117,7 @@ Luego ejecutar notebooks **01 → 07** en orden, sin `NLP_DEV_MODE`. Tiempos ori
 | `01_eda.ipynb` | **Análisis exploratorio**: longitudes, distribución temática, léxico por clase y detección de duplicados | — |
 | `02_preprocessing_and_splits.ipynb` | **Preprocesamiento y partición temporal** 70/15/15 → `data/processed/` | — |
 | `03_baseline_models.ipynb` | Modelos tradicionales BoW/TF-IDF | [Experimento 1](docs/adr/experimento-01-baseline-modelos-tradicionales.md) |
-| `04_linguistic_features.ipynb` | Features lingüísticas interpretables (spaCy + VADER) — _scaffold, pendiente de implementar_ | [Experimento 2](docs/adr/experimento-02-features-linguisticas.md) |
+| `04_linguistic_features.ipynb` | Features lingüísticas interpretables (spaCy + VADER, LR sin scaler) | [Experimento 2](docs/adr/experimento-02-features-linguisticas.md) |
 | `05_embeddings_and_transformers.ipynb` | Embeddings (GloVe) y Transformers (DistilBERT) | [Experimento 3](docs/adr/experimento-03-embeddings-transformers.md) |
 | `06_feature_importance.ipynb` | Importancia de atributos y análisis de adjetivos por clase | [Experimento 4](docs/adr/experimento-04-importancia-atributos.md) |
 | `07_error_analysis.ipynb` | Análisis manual de errores (falsos positivos / falsos negativos) | [Experimento 5](docs/adr/experimento-05-analisis-errores.md) |

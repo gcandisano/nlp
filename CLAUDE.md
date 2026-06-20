@@ -38,9 +38,10 @@ Two layers: a reusable Python package (`src/nlp/`) holds all logic; the notebook
 - `io.py` — `load_split` / `load_splits` (Parquet preferido, fallback CSV; columnas selectivas) y `save_split` (Parquet + CSV).
 - `preprocessing.py` — text cleaning (`clean_text`, eliminación de números, URL→`[URL]`, `normalize_source_markers`), date parsing (multi-format), deduplication, and `run_preprocessing_pipeline()` which produces the temporal splits. Generates `clean_*` columns in both `_with_stopwords` / `_without_stopwords` variants (vectorizado + paralelo). Tras cambios en limpieza, re-ejecutar notebook **02** antes de 03+.
 - `modeling.py` — baseline grid engine: vectorizer + sklearn pipeline builders, `run_baseline_grid` (vectoriza una vez por config; hiperparámetros del clasificador sobre matrices sparse), `evaluate_best_configs_on_test` (test once), `run_source_ablation` / `decide_source_normalization` (ablación de fuente), `get_linear_feature_weights` (coefficients for interpretability).
+- `features.py` — extracción cacheada de 8 features lingüísticas (spaCy + VADER), tuning de LR sin scaler, coeficientes interpretables (Experimento 2).
 - `embeddings.py` — carga GloVe con cache gensim (`.kv`) y embeddings de documento cacheados (`.npz`).
 - `transformers_data.py` — `NewsDataset` (tokenización lazy) y `prepare_transformer_inputs` para DistilBERT.
-- `metrics.py` — `compute_metrics` (the canonical metric dict) and `consolidate_results` which merges baseline/embedding/transformer CSVs into `results/metrics/all_model_results.csv`.
+- `metrics.py` — `compute_metrics` (the canonical metric dict) and `consolidate_results` which merges baseline/linguistic/embedding/transformer CSVs into `results/metrics/all_model_results.csv`.
 - `plotting.py` — matplotlib/seaborn helpers; `save_figure` writes to `results/figures/`.
 - `bootstrap.py` / `setup.py` — the `setup` console script (validates raw data present, downloads NLP resources).
 
@@ -48,7 +49,7 @@ Two layers: a reusable Python package (`src/nlp/`) holds all logic; the notebook
 1. `01_eda.ipynb` — exploratory analysis → `results/figures/`
 2. `02_preprocessing_and_splits.ipynb` — runs the preprocessing pipeline → `data/processed/{politics,full}_{train,val,test}.{parquet,csv}`
 3. `03_baseline_models.ipynb` (Exp 1) — BoW/TF-IDF × LR/NB/LinearSVC grid + source ablation → `results/metrics/baseline_results.csv`, `results/metrics/source_ablation_results.csv`, `results/metrics/source_ablation_decision.json`, `results/models/`
-4. `04_linguistic_features.ipynb` (Exp 2) — **scaffold only**: 8 interpretable features (spaCy POS/NER + VADER) → LogisticRegression, plus title/body/combined sub-experiment. Code cells are TODO; `vaderSentiment` and an optional `src/nlp/features.py` are **not created yet**.
+4. `04_linguistic_features.ipynb` (Exp 2) — 8 interpretable features (spaCy POS/NER + VADER) → LogisticRegression sin scaler, sub-experimento título/cuerpo/combinado → `linguistic_features_results.csv`, cache en `data/processed/linguistic_features_*.parquet`.
 5. `05_embeddings_and_transformers.ipynb` (Exp 3) — GloVe/Word2Vec + DistilBERT/BERT → `embedding_results.csv`, `transformer_results.csv`
 6. `06_feature_importance.ipynb` (Exp 4) — linear coefficients, adjectives per class
 7. `07_error_analysis.ipynb` (Exp 5) — manual FP/FN taxonomy, model comparison
@@ -67,6 +68,7 @@ Data flow: `data/raw/` → `data/processed/` (splits Parquet/CSV) → `results/`
 ## Gotchas
 
 - Notebook **03** trains a large grid (3 models × 2 vectorizers × 3 text fields × 2 stopword settings × 2 n-gram settings × 3 `max_features`) — it is slow. `run_baseline_grid` accepts `max_combos` to cap it during development; with `NLP_DEV_MODE=1` the notebook limits politics to 20 combos and skips `full_dataset`.
+- Notebook **04** extracts spaCy features for three text fields × three splits; first run is slow, subsequent runs reuse Parquet cache. With `NLP_DEV_MODE=1` the notebook samples 10% per split.
 - Notebook **05** downloads GloVe (~850 MB) on first run; subsequent runs reuse gensim `.kv` and per-split `.npz` caches. With limited GPU/RAM, lower `SAMPLE_FRAC` for DistilBERT (e.g. `0.1`); `DEV_MODE` sets `SAMPLE_FRAC=0.1` automatically.
 - spaCy model is **`en_core_web_sm`** everywhere (pinned in `pyproject.toml`, loaded in `setup.py` and notebook 06; documented in Informe/ADRs). This is **deliberate, not a gap**: the features use POS tagging, NER, and sentence segmentation (≈identical accuracy across `sm`/`lg`), not word vectors — don't "upgrade" to `lg`, it's a ~560 MB download for no benefit here.
 - GloVe is **`glove.6B.100d`** by design (not `840B/300d`): 100d averaged document vectors suffice for this lexical binary task. ADR-03 documents the choice.
