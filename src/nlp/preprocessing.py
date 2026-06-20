@@ -1,10 +1,12 @@
 """Funciones reutilizables de preprocesamiento de texto."""
+
 import re
 
 import pandas as pd
+from joblib import Parallel, delayed
 
+from nlp.io import save_split
 from nlp.paths import (
-    DATA_PROCESSED,
     DATA_RAW,
     POLITICS_FAKE_OPTIONAL,
     POLITICS_FAKE_SUBJECTS,
@@ -26,6 +28,11 @@ URL_PATTERN = re.compile(
 )
 PUNCTUATION_PATTERN = re.compile(r"[^\w\s!?]")
 WHITESPACE_PATTERN = re.compile(r"\s+")
+
+# Filas por tarea en la limpieza paralela de stopwords. Por debajo del umbral
+# el costo de levantar el pool de procesos supera al trabajo y se hace serial.
+_STOPWORDS_CHUNK_SIZE = 2000
+_STOPWORDS_PARALLEL_MIN = 10000
 
 
 def ensure_nltk_resources() -> None:
@@ -50,12 +57,63 @@ def _get_stopwords() -> set:
     if _NLTK_AVAILABLE:
         return set(stopwords.words("english"))
     return {
-        "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for",
-        "of", "with", "by", "from", "is", "are", "was", "were", "be", "been",
-        "being", "have", "has", "had", "do", "does", "did", "will", "would",
-        "could", "should", "may", "might", "must", "shall", "can", "this",
-        "that", "these", "those", "it", "its", "they", "them", "their", "we",
-        "our", "you", "your", "he", "she", "his", "her", "as", "not", "no",
+        "the",
+        "a",
+        "an",
+        "and",
+        "or",
+        "but",
+        "in",
+        "on",
+        "at",
+        "to",
+        "for",
+        "of",
+        "with",
+        "by",
+        "from",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "being",
+        "have",
+        "has",
+        "had",
+        "do",
+        "does",
+        "did",
+        "will",
+        "would",
+        "could",
+        "should",
+        "may",
+        "might",
+        "must",
+        "shall",
+        "can",
+        "this",
+        "that",
+        "these",
+        "those",
+        "it",
+        "its",
+        "they",
+        "them",
+        "their",
+        "we",
+        "our",
+        "you",
+        "your",
+        "he",
+        "she",
+        "his",
+        "her",
+        "as",
+        "not",
+        "no",
     }
 
 
@@ -73,7 +131,9 @@ def remove_punctuation(text: str, keep_exclamation_question: bool = True) -> str
     return re.sub(r"[^\w\s]", " ", text)
 
 
-def remove_stopwords_from_tokens(tokens: list[str], stop_set: set | None = None) -> list[str]:
+def remove_stopwords_from_tokens(
+    tokens: list[str], stop_set: set | None = None
+) -> list[str]:
     stop_set = stop_set or _get_stopwords()
     return [t for t in tokens if t not in stop_set]
 
@@ -114,6 +174,46 @@ def clean_text(
     return normalize_whitespace(" ".join(tokens))
 
 
+def _vectorized_clean_base(series: pd.Series) -> pd.Series:
+    """Limpieza vectorizada sin stopwords ni lematización."""
+    out = series.fillna("").astype(str).str.lower()
+    out = out.str.replace(URL_PATTERN, "[URL]", regex=True)
+    out = out.str.replace(PUNCTUATION_PATTERN, " ", regex=True)
+    return out.str.replace(WHITESPACE_PATTERN, " ", regex=True).str.strip()
+
+
+def _strip_stopwords_text(text: str, stop_set: set) -> str:
+    if not text:
+        return ""
+    tokens = text.split()
+    return normalize_whitespace(" ".join(t for t in tokens if t not in stop_set))
+
+
+def _process_stopwords_chunk(chunk: list[str], stop_set: set) -> list[str]:
+    return [_strip_stopwords_text(t, stop_set) for t in chunk]
+
+
+def _remove_stopwords_series(series: pd.Series, stop_set: set) -> pd.Series:
+    texts = series.tolist()
+    if len(texts) < _STOPWORDS_PARALLEL_MIN:
+        flat = _process_stopwords_chunk(texts, stop_set)
+        return pd.Series(flat, index=series.index)
+
+    chunks = [
+        texts[i : i + _STOPWORDS_CHUNK_SIZE]
+        for i in range(0, len(texts), _STOPWORDS_CHUNK_SIZE)
+    ]
+    try:
+        cleaned_chunks = Parallel(n_jobs=-1)(
+            delayed(_process_stopwords_chunk)(chunk, stop_set) for chunk in chunks
+        )
+    except Exception:
+        # Si el backend de multiprocessing no está disponible, fallback serial.
+        cleaned_chunks = [_process_stopwords_chunk(c, stop_set) for c in chunks]
+    flat = [item for chunk in cleaned_chunks for item in chunk]
+    return pd.Series(flat, index=series.index)
+
+
 def add_text_columns(df: pd.DataFrame) -> pd.DataFrame:
     """Crea columnas title_text, body_text y full_text."""
     out = df.copy()
@@ -125,19 +225,36 @@ def add_text_columns(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+_TEXT_COLS = ["title_text", "body_text", "full_text"]
+
+
+def _clean_column(
+    series: pd.Series, stop_set: set, lemmatize: bool
+) -> tuple[pd.Series, pd.Series]:
+    """Devuelve (con_stopwords, sin_stopwords) para una columna de texto."""
+    if lemmatize:
+        with_sw = series.apply(
+            lambda x: clean_text(x, remove_stopwords=False, lemmatize=True)
+        )
+        without_sw = series.apply(
+            lambda x: clean_text(x, remove_stopwords=True, lemmatize=True)
+        )
+        return with_sw, without_sw
+    base = _vectorized_clean_base(series)
+    return base, _remove_stopwords_series(base, stop_set)
+
+
 def add_clean_text_columns(
     df: pd.DataFrame,
     lemmatize: bool = False,
 ) -> pd.DataFrame:
     """Agrega variantes con y sin stopwords para title, body y full."""
     out = add_text_columns(df)
-    for col in ["title_text", "body_text", "full_text"]:
-        out[f"clean_{col}_with_stopwords"] = out[col].apply(
-            lambda x: clean_text(x, remove_stopwords=False, lemmatize=lemmatize)
-        )
-        out[f"clean_{col}_without_stopwords"] = out[col].apply(
-            lambda x: clean_text(x, remove_stopwords=True, lemmatize=lemmatize)
-        )
+    stop_set = _get_stopwords()
+    for col in _TEXT_COLS:
+        with_sw, without_sw = _clean_column(out[col], stop_set, lemmatize)
+        out[f"clean_{col}_with_stopwords"] = with_sw
+        out[f"clean_{col}_without_stopwords"] = without_sw
     return out
 
 
@@ -157,11 +274,7 @@ def drop_content_duplicates(
     dup_mask = df.duplicated(subset=subset, keep=False)
     label_conflicts = 0
     if dup_mask.any():
-        conflict_groups = (
-            df[dup_mask]
-            .groupby(subset, dropna=False)["label"]
-            .nunique()
-        )
+        conflict_groups = df[dup_mask].groupby(subset, dropna=False)["label"].nunique()
         label_conflicts = int((conflict_groups > 1).sum())
 
     out = df.drop_duplicates(subset=subset, keep=keep).reset_index(drop=True)
@@ -202,7 +315,9 @@ def temporal_split(
     val_frac: float = 0.15,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Split temporal 70/15/15 ordenando por fecha."""
-    sorted_df = df.dropna(subset=[date_col]).sort_values(date_col).reset_index(drop=True)
+    sorted_df = (
+        df.dropna(subset=[date_col]).sort_values(date_col).reset_index(drop=True)
+    )
     n = len(sorted_df)
     train_end = int(n * train_frac)
     val_end = int(n * (train_frac + val_frac))
@@ -212,19 +327,25 @@ def temporal_split(
     return train, val, test
 
 
-def class_distribution_report(df: pd.DataFrame, label_col: str = "label") -> pd.DataFrame:
+def class_distribution_report(
+    df: pd.DataFrame, label_col: str = "label"
+) -> pd.DataFrame:
     counts = df[label_col].value_counts().sort_index()
     total = len(df)
-    report = pd.DataFrame({
-        "class": ["real (0)", "fake (1)"],
-        "count": [counts.get(0, 0), counts.get(1, 0)],
-    })
+    report = pd.DataFrame(
+        {
+            "class": ["real (0)", "fake (1)"],
+            "count": [counts.get(0, 0), counts.get(1, 0)],
+        }
+    )
     report["percentage"] = (report["count"] / total * 100).round(2)
     report["split_total"] = total
     return report
 
 
-def filter_politics_subset(df: pd.DataFrame, include_optional: bool = False) -> pd.DataFrame:
+def filter_politics_subset(
+    df: pd.DataFrame, include_optional: bool = False
+) -> pd.DataFrame:
     fake_subjects = list(POLITICS_FAKE_SUBJECTS)
     if include_optional:
         fake_subjects.extend(POLITICS_FAKE_OPTIONAL)
@@ -237,8 +358,7 @@ def filter_politics_subset(df: pd.DataFrame, include_optional: bool = False) -> 
 def _save_splits(dataset: pd.DataFrame, prefix: str) -> None:
     train, val, test = temporal_split(dataset)
     for name, split in [("train", train), ("val", val), ("test", test)]:
-        path = DATA_PROCESSED / f"{prefix}_{name}.csv"
-        split.to_csv(path, index=False)
+        save_split(split, prefix, name)
         print(f"\n{prefix}_{name}: {len(split):,} rows")
         print(class_distribution_report(split))
 
@@ -258,7 +378,8 @@ def run_preprocessing_pipeline() -> None:
         f"({dedup_stats['rows_before']:,} -> {dedup_stats['rows_after']:,})"
     )
     if dedup_stats["label_conflicts"]:
-        print(f"  Grupos duplicados con etiquetas distintas: {dedup_stats['label_conflicts']}")
+        n_conflicts = dedup_stats["label_conflicts"]
+        print(f"  Grupos duplicados con etiquetas distintas: {n_conflicts}")
     df = add_clean_text_columns(df)
 
     politics_df = filter_politics_subset(df, include_optional=False)

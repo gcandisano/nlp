@@ -220,6 +220,7 @@ __marimo__/
 # Datos grandes / artefactos generados
 data/embeddings/
 data/processed/*.csv
+data/processed/*.parquet
 results/figures/*
 results/metrics/*.csv
 results/models/*

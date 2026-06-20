@@ -1,4 +1,5 @@
 """Métricas de evaluación para clasificación fake/real."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -81,7 +82,9 @@ def consolidate_results(
     sort_cols = ["f2_fake"]
     if "dataset_scope" in all_results.columns:
         sort_cols = ["dataset_scope", "f2_fake"]
-    all_results = all_results.sort_values(sort_cols, ascending=[True, False]).reset_index(drop=True)
+    all_results = all_results.sort_values(
+        sort_cols, ascending=[True, False]
+    ).reset_index(drop=True)
 
     out = output_path or (RESULTS_METRICS / "all_model_results.csv")
     all_results.to_csv(out, index=False)

@@ -1,4 +1,5 @@
 """Preparación inicial del proyecto."""
+
 from nlp.paths import DATA_RAW, ensure_output_dirs
 from nlp.setup import prepare_environment
 
@@ -8,7 +9,9 @@ KAGGLE_URL = (
 
 
 def main() -> None:
-    missing = [name for name in ("Fake.csv", "True.csv") if not (DATA_RAW / name).exists()]
+    missing = [
+        name for name in ("Fake.csv", "True.csv") if not (DATA_RAW / name).exists()
+    ]
     if missing:
         names = ", ".join(missing)
         msg = (
@@ -19,4 +22,4 @@ def main() -> None:
 
     ensure_output_dirs()
     prepare_environment()
-    print("Listo. Ejecutar notebooks 01 → 06 con: uv run jupyter lab")
+    print("Listo. Ejecutar notebooks 01 → 07 con: uv run jupyter lab")

@@ -1,4 +1,5 @@
 """Utilidades de visualización."""
+
 from pathlib import Path
 
 import matplotlib.pyplot as plt

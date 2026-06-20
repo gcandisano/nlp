@@ -1,7 +1,12 @@
 """Rutas del proyecto para notebooks y scripts reproducibles."""
+
+import os
 from pathlib import Path
 
 RANDOM_STATE = 42
+
+# Activar con NLP_DEV_MODE=1: grilla reducida y muestras más chicas en transformers.
+DEV_MODE = os.environ.get("NLP_DEV_MODE", "0") == "1"
 
 # Subconjunto político principal
 POLITICS_REAL_SUBJECTS = ["politicsNews"]
