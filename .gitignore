@@ -230,3 +230,6 @@ results/error_analysis/*
 !results/metrics/.gitkeep
 !results/models/.gitkeep
 !results/error_analysis/.gitkeep
+
+node_modules/
+.DS_Store
