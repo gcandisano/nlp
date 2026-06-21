@@ -18,6 +18,12 @@
       "sourceType": "autoskills-registry",
       "computedHash": "61f79ae3c9a29fd452e5cf8dee9891f1d0ab7da72fa80aa0366784bcd2b46d2b"
     },
+    "pptx": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "skillPath": "skills/pptx/SKILL.md",
+      "computedHash": "6b8b859d26f93aa059c9870d1ab76b44ab69e3d6757ce4a03cc94cb760888073"
+    },
     "python-testing": {
       "source": "mindrally/skills",
       "sourceType": "github",
