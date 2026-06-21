@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import random
 from itertools import product
 from pathlib import Path
 
@@ -189,6 +190,12 @@ def run_baseline_grid(
             vectorizer_types,
         )
     )
+    if max_combos is not None:
+        # Modo DEV: barajar con semilla fija antes de recortar la grilla. Sin esto,
+        # el corte por orden de product() se queda siempre con el mismo slice
+        # (text_field='title' + 'with_stopwords') y nunca llega a 'body'/'full' ni a
+        # 'without_stopwords', que es donde suele estar la mejor config.
+        random.Random(RANDOM_STATE).shuffle(vec_configs)
 
     y_train, y_val = train["label"], val["label"]
     results = []

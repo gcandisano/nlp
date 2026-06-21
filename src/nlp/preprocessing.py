@@ -30,10 +30,27 @@ PUNCTUATION_PATTERN = re.compile(r"[^\w\s!?]")
 DIGITS_PATTERN = re.compile(r"\d+")
 WHITESPACE_PATTERN = re.compile(r"\s+")
 
-# Marcadores de agencia/fuente para ablación (ADR Exp. 1).
-SOURCE_MARKERS = ("reuters", "ap", "afp")
+# Marcadores de agencia/fuente para ablación (ADR Exp. 1). Se incluyen los
+# nombres completos de las agencias además de las siglas, para no dejar señal de
+# fuente residual ("thomson reuters", "associated press", etc.). El lede típico
+# "(Reuters) -" queda cubierto por el marcador "reuters": la limpieza elimina
+# paréntesis/guiones, dejando el token suelto que \b...\b captura.
+SOURCE_MARKERS = (
+    "reuters",
+    "thomson reuters",
+    "reuters staff",
+    "ap",
+    "associated press",
+    "afp",
+    "agence france presse",
+    "agence france-presse",
+)
+# Orden por longitud descendente: el motor de regex prueba las alternativas de
+# izquierda a derecha, así "thomson reuters" matchea antes que "reuters".
 _SOURCE_MARKERS_PATTERN = re.compile(
-    r"\b(?:" + "|".join(re.escape(m) for m in SOURCE_MARKERS) + r")\b",
+    r"\b(?:"
+    + "|".join(re.escape(m) for m in sorted(SOURCE_MARKERS, key=len, reverse=True))
+    + r")\b",
     flags=re.IGNORECASE,
 )
 
@@ -393,6 +410,10 @@ def run_preprocessing_pipeline() -> None:
     df = pd.concat([fake_df, true_df], ignore_index=True)
     df = parse_dates(df)
     df = df.dropna(subset=["parsed_date"]).reset_index(drop=True)
+    # Ordenar por fecha antes de deduplicar: con keep="first" se conserva la
+    # ocurrencia más antigua (criterio temporal del TP), no la primera por orden
+    # de concatenación (que pondría siempre la fila fake en conflictos de etiqueta).
+    df = df.sort_values("parsed_date", kind="stable").reset_index(drop=True)
     df, dedup_stats = drop_content_duplicates(df)
     print(
         f"Deduplicación title+text: {dedup_stats['removed']:,} filas eliminadas "

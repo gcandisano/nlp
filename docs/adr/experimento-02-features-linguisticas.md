@@ -97,5 +97,5 @@ El clasificador es Regresión Logística **sin** `StandardScaler`, para que los 
 
 - Si un modelo con 8 features alcanza F2 competitivo con el baseline de Exp. 1, ese es el **resultado lingüístico central** del trabajo.
 - Los resultados contextualizan si la ganancia de Transformers (Exp. 3) justifica la pérdida de interpretabilidad.
-- La extracción con spaCy `lg` es costosa en tiempo; conviene cachear features en `data/processed/`.
+- La extracción con spaCy `sm` (POS, NER y segmentación de oraciones) es costosa en tiempo sobre tres campos de texto × tres splits; conviene cachear features en `data/processed/`.
 - El sub-experimento título/cuerpo informa qué campo priorizar en análisis de errores y en despliegue hipotético (solo titulares vs. artículo completo).

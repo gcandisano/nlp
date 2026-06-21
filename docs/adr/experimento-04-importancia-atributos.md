@@ -39,7 +39,7 @@ La hipótesis es que fake news usan adjetivos con mayor carga emocional y sensac
 
 ### Análisis de n-gramas
 
-Además de unigramas, se revisan **bigramas** con mayor peso en modelos TF-IDF con `ngram_range=(1,2)`, buscando expresiones sensacionalistas (`"breaking news"`, `"shocking video"`, etc.).
+Además de unigramas, se revisan **bigramas** con mayor peso en el modelo lineal seleccionado refiteado con `ngram_range=(1,2)` (el mejor baseline del Exp. 1 resultó **BoW**, no TF-IDF), buscando expresiones sensacionalistas (`"breaking news"`, `"shocking video"`, etc.).
 
 ### Visualización
 

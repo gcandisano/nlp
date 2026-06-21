@@ -22,6 +22,7 @@ from nlp.modeling import (
     get_linear_feature_weights,
     get_text_col,
 )
+from nlp.paths import RANDOM_STATE
 from nlp.preprocessing import normalize_source_markers
 
 LINEAR_MODELS = tuple(MODEL_CONFIGS.keys())
@@ -95,9 +96,23 @@ def _best_overall_row(baseline_results: pd.DataFrame, dataset_scope: str) -> pd.
 def best_config_rows_per_model(
     baseline_results: pd.DataFrame,
     dataset_scope: str = "politics",
+    *,
+    force_text_field: str | None = None,
+    force_vectorizer: str | None = None,
 ) -> pd.DataFrame:
-    """Mejor fila de validación por tipo de modelo lineal."""
+    """Mejor fila de validación por tipo de modelo lineal.
+
+    ``force_text_field`` / ``force_vectorizer`` fijan el campo de texto y/o el
+    vectorizador comunes a todos los modelos. Comparar la consistencia de términos
+    entre LR/SVM/NB exige el MISMO vocabulario: sin fijarlo, NB puede ganar en
+    'title' y LR/SVM en 'body', y el solapamiento Jaccard da 0.0 por comparar campos
+    distintos, no por inconsistencia algorítmica real.
+    """
     val = _validation_results(baseline_results, dataset_scope)
+    if force_text_field is not None:
+        val = val[val["text_field"] == force_text_field]
+    if force_vectorizer is not None:
+        val = val[val["vectorizer"] == force_vectorizer]
     idx = val.groupby("model")["f2_fake"].idxmax()
     return val.loc[idx].sort_values("f2_fake", ascending=False)
 
@@ -237,9 +252,15 @@ def extract_adjective_counts(
     *,
     sample_size: int = 3000,
 ) -> Counter[str]:
-    """Cuenta lemas adjetivos en una muestra de textos."""
+    """Cuenta lemas adjetivos en una muestra aleatoria de textos."""
     adj_counter: Counter[str] = Counter()
-    sample = texts.head(sample_size).astype(str)
+    # Muestreo aleatorio con semilla fija. Con .head() se tomaban los textos más
+    # antiguos (el split es temporal y train va primero), sesgando la muestra a
+    # una época; .sample(random_state=...) la hace representativa y reproducible.
+    if len(texts) > sample_size:
+        sample = texts.sample(n=sample_size, random_state=RANDOM_STATE).astype(str)
+    else:
+        sample = texts.astype(str)
     for doc in nlp.pipe(sample, batch_size=256):
         for token in doc:
             if token.pos_ == "ADJ":
@@ -254,17 +275,26 @@ def adjective_sentiment_table(
     top_n: int = 50,
     vader: SentimentIntensityAnalyzer | None = None,
 ) -> pd.DataFrame:
-    """Tabla de adjetivos frecuentes con compound VADER por clase."""
+    """Tabla de adjetivos frecuentes con su valencia léxica por clase.
+
+    Usa el score por palabra del lexicon de VADER (``vader.lexicon``, rango ~-4..+4),
+    NO ``polarity_scores(adj)``: VADER es un analizador a nivel oración cuyo compound
+    depende de mayúsculas, signos y modificadores — todos ausentes en un adjetivo
+    aislado—, por lo que devolvía 0.0 para la mayoría de los lemas y la métrica de
+    "carga emocional" quedaba dominada por unas pocas palabras. La columna
+    ``in_lexicon`` indica si el adjetivo tiene entrada en el lexicon (cobertura).
+    """
     vader = vader or SentimentIntensityAnalyzer()
     rows: list[dict] = []
     for adj, count in adj_counter.most_common(top_n):
-        compound = vader.polarity_scores(adj)["compound"]
+        valence = float(vader.lexicon.get(adj, 0.0))
         rows.append(
             {
                 "adjective": adj,
                 "count": count,
-                "vader_compound": compound,
-                "vader_abs": abs(compound),
+                "valence": valence,
+                "valence_abs": abs(valence),
+                "in_lexicon": adj in vader.lexicon,
                 "class": class_label,
             }
         )
@@ -272,19 +302,21 @@ def adjective_sentiment_table(
 
 
 def adjective_sentiment_summary(adj_df: pd.DataFrame) -> pd.DataFrame:
-    """Promedio ponderado de carga emocional (|compound| VADER) por clase."""
+    """Resumen de carga emocional por clase: valencia ponderada y cobertura léxica."""
     rows: list[dict] = []
     for class_label, group in adj_df.groupby("class"):
         total = group["count"].sum()
-        weighted_abs = (group["vader_abs"] * group["count"]).sum() / total
-        weighted_compound = (group["vader_compound"] * group["count"]).sum() / total
+        weighted_abs = (group["valence_abs"] * group["count"]).sum() / total
+        weighted_valence = (group["valence"] * group["count"]).sum() / total
+        with_valence = group[group["valence_abs"] > 0]
         rows.append(
             {
                 "class": class_label,
                 "n_adjectives": len(group),
+                "n_con_valencia": int(len(with_valence)),
                 "total_count": int(total),
-                "mean_vader_abs_weighted": weighted_abs,
-                "mean_vader_compound_weighted": weighted_compound,
+                "mean_valence_abs_weighted": weighted_abs,
+                "mean_valence_weighted": weighted_valence,
             }
         )
     return pd.DataFrame(rows)

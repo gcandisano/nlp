@@ -13,7 +13,7 @@ Para ello, se utilizará un dataset público de aproximadamente 45.000 artículo
 El dataset seleccionado proviene de la plataforma Kaggle ([Fake and Real News Dataset](https://www.kaggle.com/datasets/clmentbisaillon/fake-and-real-news-dataset/)) y está compuesto por dos archivos principales en formato CSV que suman un total de 44.898 registros:
 
 - **True.csv**: Contiene 21.417 noticias verídicas, recopiladas de Reuters entre 2016 y 2017 inclusive.
-- **Fake.csv**: Contiene 23.481 noticias clasificadas como falsas, correspondientes al período 2015-2017 inclusive.
+- **Fake.csv**: Contiene 23.481 noticias clasificadas como falsas, correspondientes al período 2015 a febrero de 2018.
 
 Cada registro cuenta con las siguientes columnas:
 
@@ -36,10 +36,10 @@ En esta fase, realizamos un estudio descriptivo sobre el dataset de 44.898 regis
 
 Se observó que las noticias falsas tienden a ser ligeramente más extensas en promedio que las reales.
 
-| Clase  | Registros | Promedio de palabras |
-| :----- | :-------- | :------------------- |
-| Reales | 21.417    | 385,6                |
-| Falsas | 23.481    | 423,2                |
+| Clase  | Registros | Promedio de palabras (cuerpo) |
+| :----- | :-------- | :---------------------------- |
+| Reales | 21.417    | 385,6                         |
+| Falsas | 23.481    | 423,4                         |
 
 Las distribuciones de longitud ([figura 4](./assets/figura4.png)) muestran que, si bien la mayoría de los artículos se sitúan por debajo de las 1.000 palabras, el conjunto de noticias falsas presenta una mayor variabilidad y una cola más larga de artículos extensos.
 
@@ -56,8 +56,8 @@ Esta discrepancia sugiere que la columna **subject** podría ser un predictor de
 
 A través de nubes de palabras y tablas de frecuencia ([figura 1](./assets/figura1.png) y [figura 2](./assets/figura2.png)), identificamos patrones clave:
 
-- **Noticias Reales**: El término más frecuente es _"said"_ (64.382 apariciones), seguido de _"trump"_, _"president"_ y _"reuters"_. La presencia constante de la fuente (_"reuters"_) es una potencial fuente de sesgo: los modelos podrían aprender a asociar la mención de la fuente con la etiqueta "real" en lugar de detectar patrones lingüísticos genuinos.
-- **Noticias Falsas**: El término predominante es _"trump"_ (73.933 apariciones), seguido de _"said"_, _"people"_ y _"president"_. Se observa una mayor mención de figuras políticas específicas como _"clinton"_, _"obama"_ e _"hillary"_, y el uso de términos como _"via"_ y _"video"_, reflejando el origen de muchas de estas noticias en redes sociales.
+- **Noticias Reales**: El término más frecuente es _"said"_ (99.076 apariciones), seguido de _"trump"_, _"president"_ y _"reuters"_. La presencia constante de la fuente (_"reuters"_) es una potencial fuente de sesgo: los modelos podrían aprender a asociar la mención de la fuente con la etiqueta "real" en lugar de detectar patrones lingüísticos genuinos.
+- **Noticias Falsas**: El término predominante es _"trump"_ (88.636 apariciones), seguido de _"said"_, _"people"_ y _"president"_. Se observa una mayor mención de figuras políticas específicas como _"clinton"_, _"obama"_ e _"hillary"_, y el uso de términos como _"via"_ y _"video"_, reflejando el origen de muchas de estas noticias en redes sociales.
 
 ### Técnicas de preprocesamiento
 
@@ -77,11 +77,14 @@ Basándonos en los objetivos planteados, proponemos los siguientes experimentos:
 - **Comparación con modelos de embeddings contextuales**: Implementar modelos basados en embeddings preentrenados (**GloVe**, **Word2Vec**) y Transformers (**DistilBERT**) para la clasificación de las noticias.
 - **Análisis de errores y explicabilidad**: Evaluar la **importancia de atributos** e identificar los patrones de error más frecuentes para entender las limitaciones de los modelos.
 
-**Hipótesis de investigación:**
+**Hipótesis de investigación** (se enuncian como predicciones; el resultado obtenido se anota a continuación de cada una):
 
-- Las noticias falsas utilizan adjetivos con mayor carga emocional y sensacionalista en comparación con las noticias reales de fuentes periodísticas tradicionales. Esta hipótesis será validada en el Experimento 4, extrayendo los adjetivos más frecuentes por clase y comparando su carga semántica.
-- El uso del cuerpo del texto completo permitirá una clasificación más precisa que el uso exclusivo del titular, debido a la mayor riqueza de patrones lingüísticos presentes en el desarrollo de la noticia.
-- El rendimiento de los modelos disminuirá significativamente al eliminar los marcadores de fuente (e.g., "reuters") del texto, lo que indicaría que parte de la señal aprendida corresponde a identidad de fuente y no a patrones lingüísticos de desinformación.
+- **H1 — Carga emocional de los adjetivos.** Las noticias falsas utilizan adjetivos con mayor carga emocional y sensacionalista que las reales de fuentes periodísticas tradicionales. Esta hipótesis se contrasta en el Experimento 4 extrayendo los adjetivos más frecuentes por clase y comparando su valencia léxica.
+  _Resultado (Exp 4):_ **sostenida en dirección** — la carga emocional absoluta (valencia léxica de VADER por palabra, ponderada por frecuencia) de los adjetivos fake (≈0,30) duplica la de los reales (≈0,12). Matiz: la mayoría de los adjetivos frecuentes son neutros; la diferencia la marcan unos pocos adjetivos cargados (`great`, `illegal`, `bad`, `criminal`) más habituales en fake.
+- **H2 — Cuerpo vs. título.** El uso del cuerpo del texto completo permitirá una clasificación más precisa que el uso exclusivo del titular, por la mayor riqueza de patrones lingüísticos del desarrollo de la noticia.
+  _Resultado (Exp 2):_ **refutada** — con las 8 features interpretables, el **título solo** clasifica mejor (F2 val 0,92) que el cuerpo (0,77) y que el combinado (0,83). En este corpus las señales de estilo (mayúsculas, exclamaciones, pronombres) se concentran en titulares sensacionalistas, no diluidas en el cuerpo.
+- **H3 — Señal de fuente.** El rendimiento disminuirá significativamente al eliminar los marcadores de fuente (e.g., "reuters"), lo que indicaría que parte de la señal aprendida corresponde a identidad de fuente y no a patrones lingüísticos de desinformación.
+  _Resultado (Exp 1, ablación):_ **no confirmada** — normalizar los marcadores de fuente baja el F2 en validación solo ~0,017 (< umbral 0,03), por lo que el modelo **no** se apoya de forma significativa en la identidad de fuente; aprende mayormente patrones lingüísticos. (Hallazgo positivo de validez del dataset.) _Nota:_ valor de la corrida actual; revalidar tras re-ejecutar el Exp 1 con la lista de marcadores ampliada (`associated press`, `agence france-presse`, `thomson reuters`, …). Si la caída superara 0,03, se activaría `use_source_normalization` y los Exp 2/4 se reharían sobre texto con `[SOURCE]`.
 
 ## Experimentos
 
@@ -96,7 +99,8 @@ Se aplicará un pipeline de preprocesamiento estándar:
 - Conversión de texto a minúsculas.
 - Eliminación de números y caracteres especiales, conservando `!` y `?` como posibles señales de estilo.
 - Reemplazo de URLs por el token genérico `[URL]`.
-- Eliminación de duplicados exactos por `(title, text)` antes de particionar, para evitar leakage entre splits.
+- Parseo de fechas multi-formato y descarte de las filas con fecha no parseable (10 registros con valores basura), necesario para la partición temporal: reduce el corpus de 44.898 a 44.888 registros.
+- Eliminación de duplicados exactos por `(title, text)` antes de particionar, para evitar leakage entre splits. Se ordena por fecha antes de deduplicar, de modo que se conserva la ocurrencia más antigua (criterio temporal). Tras deduplicar quedan 39.099 registros, sobre los que se calculan los splits.
 - Tokenización del texto.
 - Stopwords: se entrenarán modelos en dos condiciones —con y sin eliminación de stopwords— para cuantificar el impacto de esta decisión.
 - No se aplica lematización en los baselines principales, para preservar las formas superficiales que pueden funcionar como señales discriminativas.
@@ -166,7 +170,7 @@ La **F2-score** es la métrica principal porque otorga mayor peso al recall que 
 Una vez entrenado el mejor modelo del Experimento 1, se analizará si su rendimiento se apoya en la señal de fuente más que en patrones lingüísticos reales. Para ello, se entrenará el mismo modelo en dos condiciones:
 
 - **Condición A**: Texto original (incluyendo menciones de fuentes como "reuters", "ap", "afp").
-- **Condición B**: Texto con tokens de fuente normalizados —reemplazando "reuters", "ap", "afp" y similares por el token `[SOURCE]`—.
+- **Condición B**: Texto con tokens de fuente normalizados —reemplazando menciones de agencia ("reuters", "ap", "afp", "associated press", "agence france-presse", "thomson reuters") por el token `[SOURCE]`—. (El vectorizador descarta los corchetes con su `token_pattern` por defecto, de modo que todas las agencias colapsan en un único token `source`; la ablación funciona igual, pero el token literal aprendido es `source`, no `[SOURCE]`.)
 
 Se comparará el F2-score entre ambas condiciones. Si la diferencia es grande, se concluirá que el dataset codifica parcialmente identidad de fuente, y el análisis lingüístico de los experimentos siguientes deberá realizarse sobre textos con fuentes normalizadas. Si la diferencia es pequeña, los modelos estarán aprendiendo patrones genuinamente lingüísticos.
 
@@ -218,7 +222,7 @@ Se eligió **VADER** (Valence Aware Dictionary and sEntiment Reasoner) porque fu
 
 **Clasificador**: Se utilizará **Regresión Logística** (en lugar de Random Forest, SVM o redes neuronales), **sin** `StandardScaler` previo — a diferencia del Experimento 3 sobre embeddings. La elección es deliberada: el objetivo no es maximizar la performance sino entender qué features son discriminativas en sus unidades originales. Los coeficientes son directamente interpretables —un coeficiente alto en `ratio_exclamacion` significa que los signos de exclamación predicen contenido falso—. La regularización `C` se selecciona en validación entre {0.1, 1, 10} por F2 fake.
 
-**Sub-experimento: Título vs. cuerpo vs. combinado**: Se extraen features y se entrena el clasificador logístico en tres condiciones: solo `title_text`, solo `body_text`, y `full_text` concatenado. Esto valida la Hipótesis 2 y determina dónde viven los patrones lingüísticos más discriminativos.
+**Sub-experimento: Título vs. cuerpo vs. combinado**: Se extraen features y se entrena el clasificador logístico en tres condiciones: solo `title_text`, solo `body_text`, y `full_text` concatenado. Esto **contrasta** la Hipótesis 2 (que resulta **refutada**: el título solo clasifica mejor que el cuerpo y que el combinado) y determina dónde viven los patrones lingüísticos más discriminativos.
 
 #### Evaluación
 
@@ -238,7 +242,7 @@ Se implementarán modelos basados en embeddings preentrenados y arquitecturas Tr
 
 #### ¿Cómo se va a realizar?
 
-**Embeddings preentrenados (GloVe, Word2Vec, FastText)**
+**Embeddings preentrenados (GloVe, Word2Vec)**
 
 Cada noticia será representada mediante el promedio de los embeddings de sus palabras, utilizados luego como entrada a un clasificador logístico o SVM. Se utilizarán los vectores **GloVe** preentrenados en Wikipedia + Gigaword (`glove.6B.100d`: 6B tokens, 100 dimensiones): ese corpus incluye texto periodístico de un dominio similar al del dataset, lo que mejora la cobertura de vocabulario. Se eligió la variante 6B/100d en lugar de 840B/300d porque, para una representación de documento por promedio de vectores en una clasificación binaria de señal mayormente léxica, la ganancia de la variante grande es marginal frente a su costo (~2 GB vs. ~850 MB de descarga, y 3× memoria por vector). Como punto de comparación se entrenará además un **Word2Vec** propio sobre el dataset, para evaluar si los embeddings específicos del dominio capturan mejor el vocabulario de noticias falsas del período 2015-2017.
 
@@ -258,7 +262,7 @@ Los hiperparámetros a ajustar son:
 - Learning rate
 - Batch size
 - Número de épocas (con early stopping sobre el F2-score de validación)
-- Warmup steps y scheduler de tasa de aprendizaje
+- Warmup ratio y scheduler de tasa de aprendizaje
 
 #### Evaluación
 
@@ -282,7 +286,7 @@ En modelos lineales (Regresión Logística, SVM lineal):
 
 - Se extraerán los coeficientes asociados a cada término.
 - Se identificarán las palabras con mayor peso positivo (asociadas a noticias falsas) y negativo (asociadas a reales).
-- Se analizarán adjetivos frecuentes por clase y se comparará su carga semántica, para validar la hipótesis sobre el lenguaje emocional.
+- Se analizarán adjetivos frecuentes por clase y se comparará su carga semántica (valencia léxica de VADER por palabra), para contrastar la hipótesis sobre el lenguaje emocional.
 
 También se analizarán n-gramas relevantes y expresiones asociadas a contenido sensacionalista. Los resultados se visualizarán mediante tablas y gráficos comparativos.
 
@@ -315,15 +319,35 @@ También se compararán los errores entre modelos tradicionales y Transformers.
 
 #### Evaluación
 
-Se seleccionará una muestra representativa de al menos 30 ejemplos mal clasificados (balanceando falsos positivos y falsos negativos) del mejor modelo obtenido en los Experimentos 1, 2 y 3. Cada caso será analizado manualmente, categorizándolo en una taxonomía predefinida (e.g., lenguaje neutral en noticia falsa, fuente ambigua, ironía). Se reportará la distribución de categorías de error y se comparará entre el mejor modelo tradicional y el mejor Transformer.
+Se seleccionará una muestra de al menos 30 ejemplos mal clasificados **cuando los haya** (balanceando falsos positivos y falsos negativos en la medida de lo posible) del **mejor modelo tradicional (Exp 1)** y, cuando esté disponible, del **mejor Transformer (Exp 3)**; el modelo de features lingüísticas (Exp 2) no se analiza por errores al quedar dominado por el baseline. Cada caso será analizado manualmente, categorizándolo en una taxonomía predefinida (e.g., lenguaje neutral en noticia falsa, fuente ambigua, ironía). Se reportará la distribución de categorías de error y se comparará entre ambos enfoques. **Nota:** dado el F2 ≈ 0,99, el mejor baseline comete solo 17 errores en test (6 FP, 11 FN); al quedar por debajo del mínimo de 30 se analizan todos los disponibles y se documenta la limitación.
 
 #### ¿Por qué se va a realizar?
 
 Este análisis permitirá entender mejor las limitaciones de cada enfoque y detectar situaciones donde los modelos tienen dificultades para capturar el contexto o la intención del texto.
 
+## Amenazas a la validez y limitaciones
+
+Estas limitaciones son tan relevantes como los resultados: el sistema es de **apoyo** a la verificación humana, no de verificación factual.
+
+- **Fuente única en la clase real.** Todas las noticias reales del corpus provienen de **Reuters**. Por lo tanto, cualquier "patrón lingüístico real" aprendido es indistinguible del **estilo editorial de Reuters** (oraciones largas y estructuradas, lede "(Reuters) -", voz neutra, alta densidad de entidades). El subconjunto político controla el sesgo **temático** (ambas clases hablan de política), pero **no** el sesgo de **fuente**. Las conclusiones lingüísticas deben leerse como "estilo Reuters vs. contenido fake de este corpus", no como una ley general de la desinformación. _Posible mejora:_ incorporar noticias reales de múltiples fuentes.
+
+- **F2 ≈ 0,99: rendimiento casi perfecto como huella de artefacto.** Un BoW(1,2) trivial sobre el cuerpo alcanza F2 0,989 y ROC-AUC 0,998. Este dataset es conocido por separarse de forma casi trivial por artefactos (boilerplate, estructura, fuente), no por veracidad. El rendimiento altísimo **no** debe interpretarse como evidencia de detección de desinformación; la evidencia lingüística genuina proviene de las features interpretables (Exp 2) y de los coeficientes/adjetivos (Exp 4), no del F2 del baseline.
+
+- **Reutilización del conjunto de test.** Aunque cada modelo selecciona sus hiperparámetros en **validación**, el mismo `politics_test` se evalúa en múltiples experimentos (baseline, ablación, embeddings, DistilBERT) y la tabla comparativa se arma sobre F2 de test. Esa comparación cross-experimento es **exploratoria**: al observar el test varias veces, el F2 del mejor puede quedar levemente optimista. El "mejor modelo" se justifica por su F2 de **validación**.
+
+- **Split temporal del dataset completo: inversión de prevalencia.** En el alcance `full`, el orden temporal hace que train sea ~60 % fake mientras val/test caen a ~12 % fake (las clases no son temporalmente estacionarias). Esto introduce un confound temporal-de-clase: parte de la separabilidad puede deberse a proxies de época. Por eso `full` se usa **solo** como control de sensibilidad; el experimento de referencia es `politics` (desbalance moderado: train ~40 % → test ~33 % fake). _Posible mejora:_ reportar también balanced-accuracy / AUC-PR.
+
+- **Word2Vec de dominio vs. GloVe.** El Word2Vec se entrena sobre ~12,6k documentos del train político, mientras GloVe se preentrenó sobre 6.000 millones de tokens. Cualquier diferencia de F2 mezcla el efecto de **dominio** con el de **tamaño del corpus de entrenamiento** del embedding; no es atribuible a "dominio puro".
+
+- **Deduplicación exacta y frontera temporal.** La deduplicación es por coincidencia **exacta** de `(title, text)`; near-duplicates de boilerplate Reuters podrían sobrevivir (se verificó que no hay leakage exacto entre splits en `politics`). Además, artículos publicados exactamente en la fecha-frontera pueden repartirse entre train y val/test (sin leakage de contenido). _Posible mejora:_ deduplicación difusa (MinHash/LSH).
+
+- **Alcance de modelos.** No se entrenó BERT-base ni modelos de mayor escala (RoBERTa-large, GPT, LLaMA) por costo computacional; DistilBERT cubre el rol contextual. La interpretabilidad de coeficientes (Exp 4) no aplica a DistilBERT; el análisis de errores (Exp 5) compensa parcialmente esa pérdida.
+
 ## Anexo
 
 Gráficos generados durante el análisis exploratorio de datos.
+
+> Las figuras de este anexo se producen en `01_eda.ipynb` (`results/figures/01_eda_*.png`) y se copian a `docs/assets/figuraN.png`; deben regenerarse tras cualquier cambio en el EDA (p. ej. la corrección de las frecuencias léxicas) para no quedar desactualizadas.
 
 ### Figura 1 — Word Cloud de Fake News
 

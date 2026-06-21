@@ -29,8 +29,8 @@ No se analizan todos los modelos de la grilla: solo los representativos de cada 
 
 ### Muestra de errores
 
-- Mínimo **30 ejemplos** mal clasificados en test.
-- Balance entre **falsos positivos (FP)** y **falsos negativos (FN)**.
+- Objetivo: **≥30 ejemplos** mal clasificados en test **cuando los haya**. Con F2 ≈ 0,99 el mejor baseline comete solo **17** errores (6 FP, 11 FN); en ese caso se analizan **todos** los disponibles y se documenta la limitación (la muestra es ilustrativa, no exhaustiva).
+- Balance entre **falsos positivos (FP)** y **falsos negativos (FN)** en la medida de lo posible.
 - Criterio de selección: representatividad (mezcla de scores de confianza alta y baja), no solo los casos más extremos.
 
 Definiciones:
@@ -58,7 +58,7 @@ La taxonomía es fija antes del análisis para evitar sesgo retrospectivo.
 
 1. Generar predicciones del mejor modelo tradicional (y DistilBERT) sobre `politics_test.csv`.
 2. Filtrar FP y FN.
-3. Muestrear ≥30 casos balanceados.
+3. Muestrear ≥30 casos balanceados cuando existan; si el modelo comete menos (caso del baseline, 17), analizar todos los errores disponibles.
 4. Revisión manual: leer título + extracto del cuerpo, asignar categoría, anotar observación breve.
 5. Reportar distribución de categorías por modelo y comparar entre tradicional vs. Transformer.
 

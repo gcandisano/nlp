@@ -52,7 +52,7 @@ No se usan RoBERTa-large, GPT, LLaMA ni otros modelos de gran escala: el fine-tu
 
 **BERT-base** (`bert-base-uncased`) se descartó en la implementación local: el fine-tuning en CPU es impracticable para el alcance del TP (~horas por corrida vs. minutos con DistilBERT). DistilBERT ya cubre la comparación contextual; BERT-base queda como referencia bibliográfica. Opcionalmente, la Parte B puede ejecutarse en **Google Colab con GPU** si se desea extender el experimento.
 
-FastText se menciona en el informe como alternativa teórica; en la implementación actual se prioriza GloVe + Word2Vec por cobertura y simplicidad.
+FastText se consideró como alternativa teórica (embeddings de subpalabras), pero no se implementa: la implementación prioriza GloVe + Word2Vec por cobertura y simplicidad. Por eso no figura en el Informe ni en el código.
 
 ### Evaluación
 

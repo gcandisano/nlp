@@ -45,7 +45,7 @@ Two layers: a reusable Python package (`src/nlp/`) holds all logic; the notebook
 - `plotting.py` — matplotlib/seaborn helpers; `save_figure` writes to `results/figures/`.
 - `bootstrap.py` / `setup.py` — the `setup` console script (validates raw data present, downloads NLP resources).
 
-**Pipeline (run in order; later notebooks consume earlier outputs).** Notebook numbers ≠ experiment numbers: notebooks 01–02 are EDA/preprocessing, then notebook `0(N+3)` implements Experimento N.
+**Pipeline (run in order; later notebooks consume earlier outputs).** Notebook numbers ≠ experiment numbers: notebooks 01–02 are EDA/preprocessing, then notebook `0(N+2)` implements Experimento N.
 1. `01_eda.ipynb` — exploratory analysis → `results/figures/`
 2. `02_preprocessing_and_splits.ipynb` — runs the preprocessing pipeline → `data/processed/{politics,full}_{train,val,test}.{parquet,csv}`
 3. `03_baseline_models.ipynb` (Exp 1) — BoW/TF-IDF × LR/NB/LinearSVC grid + source ablation → `results/metrics/baseline_results.csv`, `results/metrics/source_ablation_results.csv`, `results/metrics/source_ablation_decision.json`, `results/models/`
@@ -62,7 +62,7 @@ Data flow: `data/raw/` → `data/processed/` (splits Parquet/CSV) → `results/`
 - **Primary metric is `f2_fake`** (F2-score of the fake class, β=2). It is the selection criterion in the grid and the comparison metric across every experiment — a false negative (fake passed as real) is treated as costlier than a false positive. Don't switch to F1/accuracy for model selection.
 - **Temporal split, not random**: 70/15/15 ordered by publication date (train = oldest, test = newest). Validation/test may be class-imbalanced relative to train; this is expected. Hyperparameters are selected on **validation only**; test is evaluated exactly once.
 - **Two dataset scopes**: `politics` (real=`politicsNews`, fake=`politics`) is the main experiment — it controls for the strong topical bias in `subject`. `full` is a sensitivity control for baselines only. The `subject` column is **never** used as a feature.
-- **Source ablation** (notebook 03): retrain best model with source tokens (`reuters`, `ap`, `afp`) normalized to `[SOURCE]`. A large F2 drop (≥ `SOURCE_ABLATION_F2_DROP_THRESHOLD` in val) sets `use_source_normalization` in `source_ablation_decision.json`; notebooks 04+ deben leer ese JSON y aplicar `normalize_source_markers` al texto de entrada cuando corresponda.
+- **Source ablation** (notebook 03): retrain best model with source markers (`reuters`, `ap`, `afp` plus full agency names like `associated press`, `agence france-presse`, `thomson reuters` — see `SOURCE_MARKERS` in `preprocessing.py`) normalized to `[SOURCE]`. A large F2 drop (≥ `SOURCE_ABLATION_F2_DROP_THRESHOLD` in val) sets `use_source_normalization` in `source_ablation_decision.json`; notebooks 04+ deben leer ese JSON y aplicar `normalize_source_markers` al texto de entrada cuando corresponda.
 - Map experiment → notebook → ADR: each `docs/adr/experimento-0N-*.md` documents the *why* behind notebook `0(N+2)`. Read the relevant ADR before changing methodology.
 
 ## Gotchas
