@@ -130,7 +130,7 @@ def load_annotations(path: Path) -> pd.DataFrame:
 
 
 def annotations_complete(df: pd.DataFrame) -> bool:
-    """Indica si todas las filas tienen categoría válida del ADR."""
+    """Indica si todas las filas tienen categoría válida de la taxonomía."""
     if df.empty:
         return False
 
@@ -141,7 +141,7 @@ def annotations_complete(df: pd.DataFrame) -> bool:
 
 
 def category_distribution(annotations: pd.DataFrame) -> pd.DataFrame:
-    """Cuenta categorías en el orden definido por el ADR."""
+    """Cuenta categorías en el orden definido por la taxonomía."""
     counts = annotations["category"].value_counts()
     rows = [
         {"category": cat, "count": int(counts.get(cat, 0))}
@@ -152,12 +152,12 @@ def category_distribution(annotations: pd.DataFrame) -> pd.DataFrame:
 
 
 def warn_if_small_sample(n_errors: int, *, min_sample: int = MIN_ERROR_SAMPLE) -> None:
-    """Advierte si la muestra disponible es menor que el mínimo del ADR."""
+    """Advierte si la muestra disponible es menor que el mínimo metodológico."""
     n_fp_fn = n_errors
     print(f"Total errores en test: {n_fp_fn}")
     if n_fp_fn < min_sample:
         print(
-            f"ADVERTENCIA: el ADR sugiere ≥{min_sample} errores, pero el modelo solo "
+            f"ADVERTENCIA: la metodología sugiere ≥{min_sample} errores, pero el modelo solo "
             f"comete {n_fp_fn} en test. Se analizan todos los casos disponibles; "
             "esto limita la generalización cualitativa."
         )
