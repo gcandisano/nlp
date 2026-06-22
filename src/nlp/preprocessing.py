@@ -30,7 +30,7 @@ PUNCTUATION_PATTERN = re.compile(r"[^\w\s!?]")
 DIGITS_PATTERN = re.compile(r"\d+")
 WHITESPACE_PATTERN = re.compile(r"\s+")
 
-# Marcadores de agencia/fuente para ablación (ADR Exp. 1). Se incluyen los
+# Marcadores de agencia/fuente para ablación. Se incluyen los
 # nombres completos de las agencias además de las siglas, para no dejar señal de
 # fuente residual ("thomson reuters", "associated press", etc.). El lede típico
 # "(Reuters) -" queda cubierto por el marcador "reuters": la limpieza elimina
