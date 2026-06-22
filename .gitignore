@@ -220,11 +220,16 @@ __marimo__/
 # Datos grandes / artefactos generados
 data/embeddings/
 data/processed/*.csv
+data/processed/*.parquet
 results/figures/*
 results/metrics/*.csv
+results/metrics/*.json
 results/models/*
 results/error_analysis/*
 !results/figures/.gitkeep
 !results/metrics/.gitkeep
 !results/models/.gitkeep
 !results/error_analysis/.gitkeep
+
+node_modules/
+.DS_Store

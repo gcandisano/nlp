@@ -1,119 +1,131 @@
 # TP NLP: Clasificación de Fake News por Patrones Lingüísticos
 
-## Objetivo
+Trabajo práctico que entrena y evalúa modelos de clasificación supervisada para distinguir noticias **fake** y **real** según patrones lingüísticos del corpus. Los modelos **no verifican la verdad factual**; aprenden correlaciones estadísticas del dataset.
 
-Este trabajo práctico entrena y evalúa modelos de clasificación supervisada que distinguen noticias **fake** y **real** según **patrones lingüísticos aprendidos del dataset**.
-
-> **Importante:** Los modelos **no verifican la verdad factual** de una noticia. Aprenden correlaciones estadísticas presentes en los datos de entrenamiento, que pueden reflejar estilo, fuente, tema o período temporal.
-
-## Dataset
-
-Se utiliza el dataset público de Kaggle **"Fake and Real News Dataset"**:
-
-- `data/raw/Fake.csv` — noticias falsas (`label = 1`)
-- `data/raw/True.csv` — noticias reales (`label = 0`)
-
-Columnas: `title`, `text`, `subject`, `date`.
+El análisis completo (datos, experimentos, métricas y limitaciones) está en [docs/Informe.md](docs/Informe.md). Las decisiones metodológicas de cada experimento —qué modelo y representación se eligieron, con qué protocolo de evaluación y por qué— están registradas como **ADRs** en [docs/adr/](docs/adr/): hay un ADR por experimento.
 
 ## Estructura del proyecto
 
 ```text
 nlp/
+├── src/nlp/              # Paquete Python (preprocesamiento, modelos, métricas)
+├── notebooks/            # Pipeline del TP (ejecutar 01 → 07 en orden)
 ├── data/
-│   ├── raw/           # CSV originales
-│   └── processed/     # Splits temporales preprocesados
-├── notebooks/         # Notebooks del TP (ejecutar en orden)
-├── results/
-│   ├── figures/       # Gráficos
-│   ├── metrics/       # CSVs de métricas
-│   ├── models/        # Mejor modelo clásico (joblib)
-│   └── error_analysis/
-├── src/               # Utilidades compartidas
-├── requirements.txt
-└── README.md
+│   ├── raw/              # CSV originales (Fake.csv, True.csv)
+│   ├── processed/        # Splits temporales (.parquet + .csv)
+│   └── embeddings/       # Cache GloVe (.kv) y embeddings por split (.npz)
+├── results/              # Figuras, métricas, modelos, análisis de errores
+├── docs/                 # Informe y ADRs
+├── pyproject.toml
+└── uv.lock
 ```
 
-## Cómo ejecutar
+## Requisitos
 
-1. Crear entorno virtual e instalar dependencias:
+- Python 3.12
+- [uv](https://docs.astral.sh/uv/) (recomendado) o pip
+- Dataset [Fake and Real News Dataset](https://www.kaggle.com/datasets/clmentbisaillon/fake-and-real-news-dataset/) en `data/raw/Fake.csv` y `data/raw/True.csv`
+
+## Cómo ejecutar (de principio a fin)
+
+### 1. Datos
+
+Descargar el [dataset de Kaggle](https://www.kaggle.com/datasets/clmentbisaillon/fake-and-real-news-dataset/) y colocar los archivos en `data/raw/`:
+
+```text
+data/raw/Fake.csv
+data/raw/True.csv
+```
+
+### 2. Entorno
+
+**Con uv (recomendado):**
 
 ```bash
-pip install -r requirements.txt
-python -m spacy download en_core_web_sm
-python -c "import nltk; nltk.download('stopwords'); nltk.download('wordnet'); nltk.download('averaged_perceptron_tagger_eng')"
+uv sync
+uv run setup
 ```
 
-2. Verificar que existan `data/raw/Fake.csv` y `data/raw/True.csv`.
+`setup` valida que existan los CSV, descarga recursos NLTK/spaCy y crea las carpetas de salida.
 
-3. Ejecutar los notebooks **en orden**:
-
-| Notebook | Contenido |
-|----------|-----------|
-| `01_eda.ipynb` | Análisis exploratorio |
-| `02_preprocessing_and_splits.ipynb` | Preprocesamiento y split temporal |
-| `03_baseline_models.ipynb` | Modelos clásicos (BoW, TF-IDF) |
-| `04_embeddings_and_transformers.ipynb` | Embeddings + DistilBERT |
-| `05_feature_importance.ipynb` | Importancia de atributos y adjetivos |
-| `06_error_analysis.ipynb` | Análisis manual de errores + consolidación |
-
-**Alternativa:** el script `scripts/run_preprocessing.py` genera los splits en `data/processed/` sin ejecutar el notebook 02.
-
-4. Los artefactos se guardan automáticamente en `data/processed/` y `results/`.
-
-5. Tras ejecutar los notebooks 03-06, consolidar resultados (también se hace al final del notebook 06):
+**Con pip:**
 
 ```bash
-python scripts/consolidate_results.py
+python -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -e .
+setup
 ```
 
-### Notas de ejecución
+### 3. Pipeline de notebooks
 
-- El notebook **03** ejecuta una grilla completa de baselines (~216 configuraciones × 2 alcances). Puede tardar bastante según el hardware.
-- El notebook **04** descarga GloVe (~850 MB) la primera vez. Para DistilBERT, ajustar `SAMPLE_FRAC` (ej. `0.1`) si hay limitaciones de GPU/RAM.
-- El split temporal puede producir **ligero desbalance** en validación/test respecto a train (documentado en notebook 02). No se aplica resampling para preservar el criterio temporal.
+```bash
+uv run jupyter lab
+```
 
-## Experimentos implementados
+Abrir `notebooks/` y ejecutar **en orden**, reiniciando el kernel si acabás de instalar dependencias:
 
-### Experimento principal (subconjunto político)
+| Paso | Notebook | Qué produce |
+| :--- | :------- | :---------- |
+| 1 | `01_eda.ipynb` | Figuras exploratorias en `results/figures/` |
+| 2 | `02_preprocessing_and_splits.ipynb` | Splits en `data/processed/{politics,full}_{train,val,test}.{parquet,csv}` |
+| 3 | `03_baseline_models.ipynb` | `results/metrics/baseline_results.csv`, modelos en `results/models/` |
+| 4 | `04_linguistic_features.ipynb` | `linguistic_features_results.csv`, cache en `data/processed/linguistic_features_*.parquet` |
+| 5 | `05_embeddings_and_transformers.ipynb` | `embedding_results.csv`, `transformer_results.csv`, `transformer_val_search.csv`; cache GloVe/Word2Vec en `data/embeddings/` |
+| 6 | `06_feature_importance.ipynb` | `feature_importance.csv`, `adjectives_by_class.csv` |
+| 7 | `07_error_analysis.ipynb` | `results/metrics/all_model_results.csv`, análisis de errores |
 
-El análisis principal se realiza sobre noticias de temática política para reducir el sesgo por diferencias temáticas entre clases:
+Cada notebook del 03 al 07 corresponde a un experimento documentado en [docs/adr/](docs/adr/).
 
-- Reales: `politicsNews`
-- Falsas: `politics`
+**Salida final:** `results/metrics/all_model_results.csv` (tabla comparativa de modelos).
 
-Sobre este subconjunto se entrenan y evalúan:
+### Modo desarrollo (`NLP_DEV_MODE`)
 
-1. Modelos baseline (Logistic Regression, Multinomial Naive Bayes, Linear SVM)
-2. Comparación título vs cuerpo vs título+cuerpo
-3. Con stopwords vs sin stopwords
-4. Embeddings preentrenados (GloVe)
-5. Fine-tuning de DistilBERT
-6. Análisis de importancia de atributos
-7. Análisis de adjetivos por clase
-8. Análisis de errores
+Para iterar más rápido **sin** correr la grilla completa ni entrenar DistilBERT sobre todo el train:
 
-### Experimento complementario (dataset completo)
+```bash
+NLP_DEV_MODE=1 uv run jupyter lab
+```
 
-Se repiten los modelos baseline sobre el dataset completo y se comparan métricas contra el subconjunto político.
+Con `NLP_DEV_MODE=1` (lee la variable al importar `nlp.paths`):
 
-## Métrica principal: F2-score (clase fake)
+| Notebook | Efecto |
+| :------- | :----- |
+| **03** | Grilla `politics` limitada a 20 combinaciones; se omite `full_dataset` |
+| **04** | Muestra al 10% por split (extracción spaCy más rápida) |
+| **05** | `SAMPLE_FRAC=0.1` en DistilBERT (10% solo de **train**); grilla HP acotada a 4 combos |
 
-Se utiliza **F2-score de la clase fake** como métrica principal para seleccionar el mejor modelo porque:
+No usar este modo para los **resultados finales del TP**: la metodología y las métricas reportadas deben salir de una corrida completa sin `NLP_DEV_MODE`.
 
-- Queremos **minimizar falsos negativos** (noticias falsas clasificadas como reales).
-- No usamos solo recall porque un modelo que predice todo como fake tendría recall alto pero baja precisión.
-- F2 prioriza recall pero sigue penalizando falsos positivos.
+### Corrida completa (recomendada para entregar)
 
-## Limitaciones del enfoque
+```bash
+uv sync
+uv run setup
+uv run jupyter lab
+```
 
-- El modelo **no verifica hechos** contra la realidad.
-- El modelo **aprende patrones del dataset**, no reglas de veracidad universal.
-- Puede haber **sesgos por fuente, tema y período temporal**.
-- Las noticias reales parecen provenir mayormente de **Reuters**, lo que puede introducir marcas de estilo/fuente.
-- El **split temporal** mejora la evaluación pero no elimina todos los sesgos.
-- Los resultados **no necesariamente generalizan** a noticias actuales, otros idiomas u otros medios.
-- Usar `subject` como predictor podría **inflar artificialmente** el rendimiento; por eso no se usa como feature.
+Luego ejecutar notebooks **01 → 07** en orden, sin `NLP_DEV_MODE`. Tiempos orientativos:
 
-## Resultados consolidados
+- **03** — grilla de baselines (la parte más lenta en CPU).
+- **05** — primera vez descarga GloVe (~850 MB) y entrena Word2Vec en train; corridas siguientes usan cache. DistilBERT en CPU puede tardar muchas horas; para entrega completa conviene GPU (local o Colab). Con poca RAM podés usar `NLP_DEV_MODE=1` para iterar.
 
-Tras ejecutar todos los notebooks, `results/metrics/all_model_results.csv` combina resultados de baseline, embeddings y transformers, con columna `dataset_scope` (`politics` / `full_dataset`), ordenados por F2-score de la clase fake.
+## Detalle por notebook
+
+| Notebook | Contenido | ADR del experimento |
+| :------- | :-------- | :------------------ |
+| `01_eda.ipynb` | **Análisis exploratorio**: longitudes, distribución temática, léxico por clase y detección de duplicados | — |
+| `02_preprocessing_and_splits.ipynb` | **Preprocesamiento y partición temporal** 70/15/15 → `data/processed/` | — |
+| `03_baseline_models.ipynb` | Modelos tradicionales BoW/TF-IDF | [Experimento 1](docs/adr/experimento-01-baseline-modelos-tradicionales.md) |
+| `04_linguistic_features.ipynb` | Features lingüísticas interpretables (spaCy + VADER, LR sin scaler) | [Experimento 2](docs/adr/experimento-02-features-linguisticas.md) |
+| `05_embeddings_and_transformers.ipynb` | Embeddings (GloVe + Word2Vec) y DistilBERT con grilla HP | [Experimento 3](docs/adr/experimento-03-embeddings-transformers.md) |
+| `06_feature_importance.ipynb` | Importancia de atributos y análisis de adjetivos por clase | [Experimento 4](docs/adr/experimento-04-importancia-atributos.md) |
+| `07_error_analysis.ipynb` | Análisis manual de errores (falsos positivos / falsos negativos) | [Experimento 5](docs/adr/experimento-05-analisis-errores.md) |
+
+## Notas
+
+- El notebook **03** entrena una grilla amplia de baselines; puede tardar bastante. En desarrollo usar `NLP_DEV_MODE=1`.
+- El notebook **05** guarda checkpoints por combinación de hiperparámetros en `results/models/distilbert_checkpoints/` y exporta el mejor modelo a `results/models/best_distilbert`.
+- El split es **temporal** (no aleatorio); validación y test pueden quedar levemente desbalanceados respecto a train.
+- Tras instalar o actualizar dependencias, reiniciar el kernel de Jupyter si ya estaba abierto.
+- Desarrollo con uv: `uv sync --group dev` instala ruff (`uv run ruff check src/nlp`).
